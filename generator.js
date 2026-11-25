@@ -150,7 +150,7 @@ function holdPool(s, correct) {
     for (const entry of ENTRIES) {
       const initial = entryInitial(entry, { inbound: s.inbound, turn, trk: s.trk });
       const m = [];
-      if (correct.either && !mirrored && correct.either.includes(entry)) m.push('missed the ±5° boundary rule (either entry is acceptable)');
+      if (correct.either && !mirrored && correct.either.includes(entry)) m.push('inside ±5° of a sector boundary the answer is "Either …" — not a single entry');
       else if (entry !== correct.entry) m.push('wrong sector');
       if (mirrored) m.push('STD / Non-STD mirrored');
       add(holdText({ entry, turn, initial, trk: s.trk, outbound: O }), m.join(', ') || 'wrong sector');
