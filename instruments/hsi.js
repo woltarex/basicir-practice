@@ -3,7 +3,7 @@ import { card, bezel, lubber, svg } from './card.js';
 
 // hdg: heading. obs: selected course. flag: 'TO' | 'FROM'. Deviation bar is always centred.
 export function hsi({ hdg, obs, flag }) {
-  const dots = [-40, -24, 24, 40].map((x) => `<circle cx="${100 + x}" cy="100" r="3" fill="none" stroke="#eee"/>`).join('');
+  const dots = [-40, -32, -24, -16, -8, 8, 16, 24, 32, 40].map((x) => `<circle cx="${100 + x}" cy="100" r="2.5" fill="none" stroke="#eee"/>`).join('');
   const tri = flag === 'TO'
     ? `<path id="flag" data-flag="TO" d="M100 66 l-8 12 h16 z" fill="#fff"/>`
     : `<path id="flag" data-flag="FROM" d="M100 134 l-8 -12 h16 z" fill="#fff"/>`;
