@@ -132,7 +132,7 @@ function answer(idx) {
     ? `✓ Correct (${(ms / 1000).toFixed(1)} s)`
     : idx === null
       ? '✗ Time is up'
-      : `✗ ${q.options[idx].mistake}`;
+      : `✗ ${q.options[idx].mistake} (${(ms / 1000).toFixed(1)} s)`;
   $('steps').innerHTML = '';
   for (const step of q.steps) {
     const li = document.createElement('li');
