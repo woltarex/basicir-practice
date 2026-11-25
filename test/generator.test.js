@@ -79,3 +79,13 @@ test('either-zone: single entries from the pair are labelled with the ±5° rule
   }
   assert.ok(seen > 0, 'no Teardrop/Special direct single option appeared');
 });
+
+test('holding instruments show heading = track to fix; HSI/DI+CDI never show an NDB', () => {
+  const rng = mulberry32(7);
+  const set = { types: ['hold'], display: 'instruments', instruments: ['rmi', 'hsi', 'dicdi'] };
+  for (let i = 0; i < 2000; i++) {
+    const s = makeScenario(rng, set, `h${i}`);
+    assert.equal(s.hdg, s.trk);
+    if (s.display === 'hsi' || s.display === 'dicdi') assert.equal(s.nav, 'VOR');
+  }
+});

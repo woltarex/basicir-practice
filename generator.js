@@ -60,8 +60,8 @@ export function makeScenario(rng, settings, id) {
   const trk = turn === 'std' ? norm(inbound + d) : norm(inbound - d);
   return {
     id, kind, display, flag, inbound, turn, trk,
-    nav: pick(rng, ['NDB', 'VOR']),
-    hdg: norm(trk + int(rng, -40, 40)),
+    nav: display === 'rmi' || display === 'numbers' ? pick(rng, ['NDB', 'VOR']) : 'VOR',
+    hdg: trk,
   };
 }
 
@@ -92,7 +92,7 @@ export function promptText(s) {
   }
   const where = s.display === 'numbers' ? ` Your track to the ${s.nav} is ${fmt(s.trk)}°.` : '';
   return `You have to join a ${s.turn === 'std' ? 'STD' : 'Non-STD'} holding over the ${s.nav}, inbound track ${fmt(s.inbound)}°.` +
-    `${where} What is your entry type and initial track?`;
+    `${where} What is your entry type and initial track? (No wind)`;
 }
 
 // ---------- distractors ----------
