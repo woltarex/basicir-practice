@@ -131,6 +131,7 @@ test('Non-STD mirrors STD', () => {
     const a = holding({ inbound: 100, turn: 'std', trk: norm(100 + (trk - 100)) });
     const b = holding({ inbound: 100, turn: 'nonstd', trk: norm(100 - (trk - 100)) });
     assert.equal(a.entry, b.entry);
+    assert.deepEqual(a.either, b.either);
   }
 });
 
