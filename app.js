@@ -1,5 +1,5 @@
 import { mulberry32, makeScenario, buildQuestion } from './generator.js';
-import { renderInstrument } from './instruments/index.js';
+import { renderInstrument, overlay } from './instruments/index.js';
 import { load, save, record } from './store.js';
 
 const $ = (id) => document.getElementById(id);
@@ -133,6 +133,16 @@ function answer(idx) {
     : idx === null
       ? '✗ Time is up'
       : `✗ ${q.options[idx].mistake} (${(ms / 1000).toFixed(1)} s)`;
+  // Redraw the instrument (or a compass rose in numbers mode) with the solution on it.
+  $('instrument').innerHTML = renderInstrument(q.scenario, q.result);
+  $('legend').replaceChildren(...overlay(q.scenario, q.result, 0).legend.map(({ color, text }) => {
+    const li = document.createElement('li');
+    const sw = document.createElement('span');
+    sw.className = 'swatch';
+    sw.style.background = color;
+    li.append(sw, text);
+    return li;
+  }));
   $('steps').innerHTML = '';
   for (const step of q.steps) {
     const li = document.createElement('li');

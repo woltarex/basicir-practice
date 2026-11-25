@@ -1,7 +1,7 @@
 import { card, bezel, lubber, svg } from './card.js';
 
 // Heading indicator + VOR CDI side by side. Needle always centred; OBS at the top of the CDI card.
-export function dicdi({ hdg, obs, flag }) {
+export function dicdi({ hdg, obs, flag }, extra = '') {
   const plane = `<path d="M100 70 v60 M70 98 h60 M88 124 h24" stroke="#f08a24" stroke-width="5" fill="none" stroke-linecap="round"/>`;
   const di = svg(bezel('HDG') + card('card', hdg) + plane + lubber, 'Heading indicator');
   const flagBox =
@@ -14,7 +14,7 @@ export function dicdi({ hdg, obs, flag }) {
   const cdi = svg(
     bezel('VOR') + card('obs', obs) + dots + ring +
       `<line id="cdi" x1="100" y1="50" x2="100" y2="150" stroke="#fff" stroke-width="4"/>` +
-      flagBox + `<path d="M100 18 l-6 10 h12 z" fill="#f2d200"/>`,
+      flagBox + extra + `<path d="M100 18 l-6 10 h12 z" fill="#f2d200"/>`,
     'VOR CDI',
   );
   return `<div class="pair">${di}${cdi}</div>`;

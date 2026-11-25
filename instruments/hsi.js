@@ -2,7 +2,7 @@ import { norm } from '../rules.js';
 import { card, bezel, lubber, svg } from './card.js';
 
 // hdg: heading. obs: selected course. flag: 'TO' | 'FROM'. Deviation bar is always centred.
-export function hsi({ hdg, obs, flag }) {
+export function hsi({ hdg, obs, flag }, extra = '') {
   const dots = [-40, -32, -24, -16, -8, 8, 16, 24, 32, 40].map((x) => `<circle cx="${100 + x}" cy="100" r="2.5" fill="none" stroke="#eee"/>`).join('');
   const tri = flag === 'TO'
     ? `<path id="flag" data-flag="TO" d="M100 66 l-8 12 h16 z" fill="#fff"/>`
@@ -15,5 +15,5 @@ export function hsi({ hdg, obs, flag }) {
     `<line id="cdi" x1="100" y1="62" x2="100" y2="138" stroke="#f2d200" stroke-width="5"/>` +
     dots + tri + '</g>';
   const plane = `<path d="M100 92 v22 M90 100 h20 M95 112 h10" stroke="#f08a24" stroke-width="3" fill="none"/>`;
-  return svg(bezel('HSI') + card('card', hdg) + course + plane + lubber, 'HSI');
+  return svg(bezel('HSI') + card('card', hdg) + course + extra + plane + lubber, 'HSI');
 }

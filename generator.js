@@ -187,6 +187,7 @@ export function buildQuestion(s, rng) {
     correctIndex: options.findIndex((o) => o.mistake === null),
     steps: [...readingSteps(s), ...result.steps],
     statKey: result.kind === 'intercept' ? result.type : 'holding',
+    result,
   };
 }
 

@@ -33,6 +33,9 @@
   .opt { text-align: left; background: var(--card); color: var(--fg); border: 1px solid var(--line); margin: 0; }
   .opt.correct { border: 2px solid var(--ok); } .opt.wrong { border: 2px solid var(--bad); }
   .verdict.ok { color: var(--ok); } .verdict.bad { color: var(--bad); }
+  ul.legend { list-style: none; padding: 0; margin: 0 0 8px; font-size: .9rem; }
+  ul.legend li { display: flex; align-items: center; gap: 8px; margin: 2px 0; }
+  .swatch { width: 18px; height: 4px; border-radius: 2px; flex: none; outline: 1px solid var(--line); }
   ol.steps { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 10px 10px 32px; }
   table { width: 100%; border-collapse: collapse; } td { padding: 4px 0; border-bottom: 1px solid var(--line); }
   .muted { color: var(--muted); font-size: .9rem; }
@@ -81,6 +84,7 @@
     <div class="options" id="options"></div>
     <div id="feedback" hidden>
       <p class="verdict" id="verdict"></p>
+      <ul class="legend" id="legend"></ul>
       <ol class="steps" id="steps"></ol>
       <button id="next">Next</button>
     </div>
