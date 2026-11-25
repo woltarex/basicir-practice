@@ -27,6 +27,7 @@
   .prompt { font-weight: 600; }
   .instrument { width: 100%; max-width: 320px; display: block; margin: 8px auto; }
   .pair { display: flex; gap: 8px; } .pair .instrument { max-width: 260px; }
+  @media (max-width: 400px) { .pair { flex-direction: column; align-items: center; } }
   .options { display: grid; gap: 8px; margin-top: 12px; }
   .opt { text-align: left; background: var(--card); color: var(--fg); border: 1px solid var(--line); margin: 0; }
   .opt.correct { border: 2px solid var(--ok); } .opt.wrong { border: 2px solid var(--bad); }
