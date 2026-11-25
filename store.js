@@ -10,6 +10,18 @@ export const defaults = () => ({
 
 const storageOr = (storage) => storage ?? globalThis.localStorage;
 
+// Any field that fails validation falls back to its default.
+function validSettings(s, def) {
+  const known = (v, ok, d) => (Array.isArray(v) && v.every((x) => typeof x === 'string') ? v.filter((x) => ok.includes(x)) : d);
+  return {
+    types: known(s.types, ['intercept', 'hold'], def.types),
+    instruments: known(s.instruments, ['rmi', 'hsi', 'dicdi'], def.instruments),
+    display: ['numbers', 'instruments', 'mixed'].includes(s.display) ? s.display : def.display,
+    timer: Number.isFinite(s.timer) && s.timer >= 0 && s.timer <= 600 ? s.timer : def.timer,
+    length: [0, 10, 20].includes(s.length) ? s.length : def.length,
+  };
+}
+
 export function load(storage) {
   try {
     const d = JSON.parse(storageOr(storage).getItem(KEY));
@@ -17,9 +29,11 @@ export function load(storage) {
       const def = defaults();
       return {
         ...def, ...d,
-        settings: { ...def.settings, ...d.settings },
+        settings: validSettings({ ...def.settings, ...d.settings }, def.settings),
         stats: d.stats && typeof d.stats === 'object' && !Array.isArray(d.stats) ? d.stats : def.stats,
-        mistakes: Array.isArray(d.mistakes) ? d.mistakes : def.mistakes,
+        mistakes: Array.isArray(d.mistakes)
+          ? d.mistakes.filter((m) => m && typeof m === 'object' && (m.kind === 'intercept' || m.kind === 'hold') && typeof m.id === 'string')
+          : def.mistakes,
       };
     }
   } catch { /* blocked or corrupt → defaults */ }

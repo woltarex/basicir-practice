@@ -49,3 +49,20 @@ test('null stats/mistakes in saved data → usable defaults', () => {
   assert.deepEqual(d.mistakes, []);
   assert.doesNotThrow(() => record(d, { statKey: '45', correct: false, ms: 1, scenario: { id: 'a' } }));
 });
+
+test('malformed stored settings fall back to defaults', () => {
+  const st = memory();
+  st.setItem('basicir.v1', JSON.stringify({ version: 1, settings: { instruments: null, display: 'bogus', types: ['hold', 'x'], timer: 9999, length: 7 } }));
+  const s = load(st).settings;
+  assert.deepEqual(s.instruments, defaults().settings.instruments);
+  assert.equal(s.display, 'numbers');
+  assert.deepEqual(s.types, ['hold']);
+  assert.equal(s.timer, 45);
+  assert.equal(s.length, 20);
+});
+
+test('malformed mistakes entries are dropped', () => {
+  const st = memory();
+  st.setItem('basicir.v1', JSON.stringify({ version: 1, mistakes: [null, 5, { kind: 'hold', id: 'a' }] }));
+  assert.deepEqual(load(st).mistakes, [{ kind: 'hold', id: 'a' }]);
+});
