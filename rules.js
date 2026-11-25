@@ -77,3 +77,69 @@ export function interceptText({ type, initial, intercept }) {
   if (type === '90/45') return `90°/45°, initial track ${fmt(initial)}°, interception track ${fmt(intercept)}°`;
   return `Track to station (${fmt(initial)}°), then over-station interception track ${fmt(intercept)}°`;
 }
+
+// ---------- Holding ----------
+
+export const ENTRIES = ['direct', 'special', 'teardrop', 'parallel'];
+const ENTRY_NAME = { direct: 'Direct', special: 'Special direct', teardrop: 'Teardrop', parallel: 'Parallel' };
+// Boundaries with a ±5° "either" zone, and the entries on each side.
+const EITHER = [
+  { at: 110, pair: ['special', 'teardrop'] },
+  { at: 180, pair: ['teardrop', 'parallel'] },
+  { at: 290, pair: ['parallel', 'direct'] },
+];
+export const EITHER_PAIRS = EITHER.map((e) => e.pair);
+
+export function holdAngle({ inbound, turn, trk }) {
+  return turn === 'std' ? norm(trk - inbound) : norm(inbound - trk);
+}
+
+export function sectorOf(d) {
+  if (d < 70 || d > 290) return 'direct';
+  if (d < 110) return 'special';
+  if (d < 180) return 'teardrop';
+  return 'parallel';
+}
+
+// Initial track (or heading for special) of a given entry.
+export function entryInitial(entry, { inbound, turn, trk }) {
+  const O = norm(inbound + 180);
+  if (entry === 'teardrop') return norm(turn === 'std' ? O - 30 : O + 30);
+  if (entry === 'special') return norm(trk);
+  return O;
+}
+
+// inbound: inbound track. turn: 'std' (right) | 'nonstd' (left). trk: aircraft track to the fix.
+export function holding({ inbound, turn, trk }) {
+  const I = norm(inbound);
+  const O = norm(I + 180);
+  const d = holdAngle({ inbound: I, turn, trk });
+  const entry = sectorOf(d);
+  const steps = [
+    `${turn === 'std' ? 'STD (right turns)' : 'Non-STD (left turns)'}, inbound ${fmt(I)}°, outbound ${fmt(O)}°`,
+    turn === 'std'
+      ? `d = track to fix − inbound = ${fmt(trk)} − ${fmt(I)} = ${d}° (mod 360)`
+      : `d = inbound − track to fix = ${fmt(I)} − ${fmt(trk)} = ${d}° (mod 360)`,
+    `Sectors: direct 0–70 & 290–360, special direct 70–110, teardrop 110–180, parallel 180–290`,
+  ];
+  const zone = EITHER.find((e) => Math.abs(d - e.at) <= 5);
+  if (zone) {
+    steps.push(`d is within ±5° of the ${zone.at}° boundary → either ${ENTRY_NAME[zone.pair[0]]} or ${ENTRY_NAME[zone.pair[1]]}`);
+    return { kind: 'hold', entry: null, either: zone.pair, turn, initial: null, trk: norm(trk), outbound: O, steps };
+  }
+  const initial = entryInitial(entry, { inbound: I, turn, trk });
+  steps.push(`d = ${d}° → ${ENTRY_NAME[entry]}`);
+  if (entry === 'teardrop') steps.push(`Teardrop track = ${fmt(O)} ${turn === 'std' ? '−' : '+'} 30 = ${fmt(initial)}°`);
+  if (entry === 'parallel') steps.push(`Parallel: fly outbound track ${fmt(O)}° on the non-holding side`);
+  if (entry === 'direct') steps.push(`Direct: turn ${turn === 'std' ? 'right' : 'left'} to outbound ${fmt(O)}°`);
+  if (entry === 'special') steps.push(`Special direct: hold ${fmt(trk)}° for 15 s, turn ${turn === 'std' ? 'right' : 'left'} to ${fmt(O)}°, outbound 45 s`);
+  return { kind: 'hold', entry, either: null, turn, initial, trk: norm(trk), outbound: O, steps };
+}
+
+export function holdText({ entry, either, turn, initial, trk, outbound }) {
+  if (either) return `Either ${ENTRY_NAME[either[0]]} or ${ENTRY_NAME[either[1]]}`;
+  const dirWord = turn === 'std' ? 'right' : 'left';
+  if (entry === 'direct') return `Direct, turn ${dirWord} to TRK ${fmt(initial)}°`;
+  if (entry === 'special') return `Special direct, hold ${fmt(trk)}° for 15 s, then turn ${dirWord} to TRK ${fmt(outbound)}°`;
+  return `${ENTRY_NAME[entry]}, initial track ${fmt(initial)}°`;
+}

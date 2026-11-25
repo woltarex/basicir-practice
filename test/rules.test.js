@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { norm, sdiff, fmt, interception, interceptBand, interceptText } from '../rules.js';
+import { holding, holdText, sectorOf } from '../rules.js';
 
 test('angle helpers', () => {
   assert.equal(norm(-10), 350);
@@ -80,4 +81,60 @@ test('inbound beyond 70 is out of scope', () => {
 test('interception text', () => {
   assert.equal(interceptText({ type: '90/45', initial: 260, intercept: 215 }), '90°/45°, initial track 260°, interception track 215°');
   assert.equal(interceptText({ type: '45', initial: 35, intercept: 35 }), '45°, initial track = interception track 035°');
+});
+
+test('holding sectors', () => {
+  assert.equal(sectorOf(0), 'direct');
+  assert.equal(sectorOf(69), 'direct');
+  assert.equal(sectorOf(70), 'special');
+  assert.equal(sectorOf(110), 'teardrop');
+  assert.equal(sectorOf(180), 'parallel');
+  assert.equal(sectorOf(290), 'parallel');
+  assert.equal(sectorOf(291), 'direct');
+});
+
+test('special direct: slide example inbound 270 STD, track 360', () => {
+  const r = holding({ inbound: 270, turn: 'std', trk: 0 });
+  assert.equal(r.entry, 'special');
+  assert.equal(holdText(r), 'Special direct, hold 000° for 15 s, then turn right to TRK 090°');
+});
+
+test('teardrop STD is outbound − 30, Non-STD outbound + 30', () => {
+  const std = holding({ inbound: 14, turn: 'std', trk: 164 }); // d = 150
+  assert.equal(std.entry, 'teardrop');
+  assert.equal(std.initial, 164);
+  const non = holding({ inbound: 14, turn: 'nonstd', trk: 224 }); // d = norm(14-224) = 150
+  assert.equal(non.entry, 'teardrop');
+  assert.equal(non.initial, 224);
+});
+
+test('parallel and direct', () => {
+  const p = holding({ inbound: 0, turn: 'std', trk: 230 });
+  assert.equal(p.entry, 'parallel');
+  assert.equal(holdText(p), 'Parallel, initial track 180°');
+  const d = holding({ inbound: 0, turn: 'nonstd', trk: 20 }); // d = 340
+  assert.equal(d.entry, 'direct');
+  assert.equal(holdText(d), 'Direct, turn left to TRK 180°');
+});
+
+test('±5° either zones', () => {
+  assert.deepEqual(holding({ inbound: 0, turn: 'std', trk: 105 }).either, ['special', 'teardrop']);
+  assert.deepEqual(holding({ inbound: 0, turn: 'std', trk: 184 }).either, ['teardrop', 'parallel']);
+  assert.deepEqual(holding({ inbound: 0, turn: 'std', trk: 295 }).either, ['parallel', 'direct']);
+  assert.equal(holding({ inbound: 0, turn: 'std', trk: 296 }).either, null);
+  assert.equal(holding({ inbound: 0, turn: 'std', trk: 70 }).either, null); // no zone at 70
+  assert.equal(holdText(holding({ inbound: 0, turn: 'std', trk: 180 })), 'Either Teardrop or Parallel');
+});
+
+test('Non-STD mirrors STD', () => {
+  for (let trk = 0; trk < 360; trk += 7) {
+    const a = holding({ inbound: 100, turn: 'std', trk: norm(100 + (trk - 100)) });
+    const b = holding({ inbound: 100, turn: 'nonstd', trk: norm(100 - (trk - 100)) });
+    assert.equal(a.entry, b.entry);
+  }
+});
+
+test('every result has worked steps', () => {
+  assert.ok(interception({ radial: 10, dir: 'outbound', pos: 200 }).steps.length >= 4);
+  assert.ok(holding({ inbound: 10, turn: 'std', trk: 10 }).steps.length >= 4);
 });
