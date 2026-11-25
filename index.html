@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IR Drill</title>
+<style>
+  :root { --bg: #f6f7f9; --fg: #1d2330; --muted: #667085; --card: #fff; --line: #d0d5dd; --accent: #e8892b; --ok: #1a7f37; --bad: #c0392b; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #11151c; --fg: #e6e9ef; --muted: #98a2b3; --card: #1a2029; --line: #344054; --ok: #3fb950; --bad: #f85149; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.4rem; margin: 0 0 12px; }
+  fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 0 0 12px; padding: 8px 12px; background: var(--card); }
+  legend { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 0 4px; }
+  label { display: inline-flex; align-items: center; gap: 6px; margin: 4px 14px 4px 0; min-height: 32px; }
+  input[type=number] { width: 5em; font: inherit; padding: 2px 6px; }
+  button { font: inherit; border: 0; border-radius: 8px; padding: 12px 16px; background: var(--accent); color: #fff; cursor: pointer; width: 100%; margin-top: 8px; }
+  button:disabled { opacity: .4; cursor: default; }
+  button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+  [hidden] { display: none !important; }
+  .top { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; margin: 4px 0 12px; overflow: hidden; }
+  .bar > div { height: 100%; background: var(--accent); width: 100%; }
+  .prompt { font-weight: 600; }
+  .instrument { width: 100%; max-width: 320px; display: block; margin: 8px auto; }
+  .pair { display: flex; gap: 8px; } .pair .instrument { max-width: 260px; }
+  .options { display: grid; gap: 8px; margin-top: 12px; }
+  .opt { text-align: left; background: var(--card); color: var(--fg); border: 1px solid var(--line); margin: 0; }
+  .opt.correct { border: 2px solid var(--ok); } .opt.wrong { border: 2px solid var(--bad); }
+  .verdict.ok { color: var(--ok); } .verdict.bad { color: var(--bad); }
+  ol.steps { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 10px 10px 32px; }
+  table { width: 100%; border-collapse: collapse; } td { padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .muted { color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+<main>
+  <section id="setup">
+    <h1>IR Drill — interception &amp; holding</h1>
+    <fieldset><legend>Exercise</legend>
+      <label><input type="checkbox" name="types" value="intercept"> Interception</label>
+      <label><input type="checkbox" name="types" value="hold"> Holding</label>
+    </fieldset>
+    <fieldset><legend>Display</legend>
+      <label><input type="radio" name="display" value="numbers"> Numbers</label>
+      <label><input type="radio" name="display" value="instruments"> Instruments</label>
+      <label><input type="radio" name="display" value="mixed"> Mixed</label>
+    </fieldset>
+    <fieldset><legend>Instruments</legend>
+      <label><input type="checkbox" name="instruments" value="rmi"> RMI</label>
+      <label><input type="checkbox" name="instruments" value="hsi"> HSI</label>
+      <label><input type="checkbox" name="instruments" value="dicdi"> DI + CDI</label>
+    </fieldset>
+    <fieldset><legend>Countdown per question (s, 0 = off)</legend>
+      <label><input type="radio" name="timerPreset" value="0"> Off</label>
+      <label><input type="radio" name="timerPreset" value="20"> 20</label>
+      <label><input type="radio" name="timerPreset" value="45"> 45</label>
+      <label><input type="radio" name="timerPreset" value="90"> 90</label>
+      <label>Custom <input type="number" name="timer" min="0" max="600"></label>
+    </fieldset>
+    <fieldset><legend>Session length</legend>
+      <label><input type="radio" name="length" value="10"> 10</label>
+      <label><input type="radio" name="length" value="20"> 20</label>
+      <label><input type="radio" name="length" value="0"> Endless</label>
+    </fieldset>
+    <button id="start">Start</button>
+    <button id="review" class="secondary">Review mistakes (0)</button>
+    <p id="setupError" class="muted" hidden></p>
+  </section>
+
+  <section id="quiz" hidden>
+    <div class="top"><span id="progress"></span><b id="clock"></b></div>
+    <div class="bar"><div id="timebar"></div></div>
+    <p class="prompt" id="prompt"></p>
+    <div id="instrument"></div>
+    <div class="options" id="options"></div>
+    <div id="feedback" hidden>
+      <p class="verdict" id="verdict"></p>
+      <ol class="steps" id="steps"></ol>
+      <button id="next">Next</button>
+    </div>
+    <button id="finish" class="secondary">Finish session</button>
+  </section>
+
+  <section id="end" hidden>
+    <h1>Session done</h1>
+    <p id="score"></p>
+    <table id="breakdown"></table>
+    <p id="topMistake" class="muted"></p>
+    <h2 style="font-size:1rem">All time</h2>
+    <table id="alltime"></table>
+    <button id="again">Back to setup</button>
+  </section>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>
