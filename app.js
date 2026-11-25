@@ -143,6 +143,18 @@ function answer(idx) {
   $('next').focus();
 }
 
+function fillTable(table, rows) {
+  table.replaceChildren(...rows.map((cells) => {
+    const tr = document.createElement('tr');
+    for (const c of cells) {
+      const td = document.createElement('td');
+      td.textContent = c;
+      tr.append(td);
+    }
+    return tr;
+  }));
+}
+
 function endSession() {
   const log = session.log;
   session = null;
@@ -156,16 +168,16 @@ function endSession() {
     per[l.statKey].total++;
     if (l.correct) per[l.statKey].correct++;
   }
-  $('breakdown').innerHTML = Object.entries(per)
-    .map(([k, v]) => `<tr><td>${LABEL[k]}</td><td>${v.correct} / ${v.total}</td></tr>`).join('');
+  fillTable($('breakdown'), Object.entries(per).map(([k, v]) => [LABEL[k] ?? k, `${v.correct} / ${v.total}`]));
 
   const counts = {};
   for (const l of log) if (!l.correct) counts[l.mistake] = (counts[l.mistake] ?? 0) + 1;
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
   $('topMistake').textContent = top ? `Most common mistake: ${top[0]} (×${top[1]})` : 'No mistakes 🎉';
 
-  $('alltime').innerHTML = Object.entries(data.stats)
-    .map(([k, v]) => `<tr><td>${LABEL[k]}</td><td>${Math.round((100 * v.correct) / v.total)}% of ${v.total} · ${(v.ms / v.total / 1000).toFixed(1)} s</td></tr>`).join('');
+  fillTable($('alltime'), Object.entries(data.stats)
+    .filter(([, v]) => v && Number(v.total) > 0)
+    .map(([k, v]) => [LABEL[k] ?? k, `${Math.round((100 * v.correct) / v.total)}% of ${v.total} · ${(v.ms / v.total / 1000).toFixed(1)} s`]));
   show('end');
 }
 
@@ -182,7 +194,7 @@ document.addEventListener('keydown', (e) => {
   if (!session.answered && /^[1-5]$/.test(e.key)) {
     const idx = Number(e.key) - 1;
     if (idx < session.q.options.length) answer(idx);
-  } else if (session.answered && e.key === 'Enter') {
+  } else if (session.answered && e.key === 'Enter' && e.target.id !== 'finish') {
     e.preventDefault();
     nextQuestion();
   }
