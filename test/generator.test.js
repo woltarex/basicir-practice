@@ -14,6 +14,8 @@ test('same seed → same question', () => {
   const q1 = buildQuestion(makeScenario(mulberry32(7), ALL, 'x'), mulberry32(8));
   const q2 = buildQuestion(makeScenario(mulberry32(7), ALL, 'x'), mulberry32(8));
   assert.deepEqual(q1, q2);
+  const s = makeScenario(mulberry32(7), ALL, 'x');
+  assert.deepEqual(buildQuestion(JSON.parse(JSON.stringify(s)), mulberry32(8)), buildQuestion(s, mulberry32(8)));
 });
 
 test('10,000 questions: one correct answer, 4–5 distinct options, labelled distractors', () => {
@@ -60,4 +62,20 @@ test('numbers mode never shows instrument readings', () => {
     assert.equal(q.scenario.display, 'numbers');
     assert.ok(!q.steps[0].startsWith('RMI') && !q.steps[0].startsWith('HSI'));
   }
+});
+
+test('either-zone: single entries from the pair are labelled with the ±5° rule', () => {
+  const s = { id: 'z', kind: 'hold', display: 'numbers', flag: 'TO', inbound: 0, turn: 'std', trk: 112, nav: 'VOR', hdg: 112 };
+  let seen = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    const q = buildQuestion(s, mulberry32(seed));
+    assert.equal(q.options[q.correctIndex].text, 'Either Special direct or Teardrop');
+    for (const o of q.options) {
+      if (o.text.startsWith('Teardrop') || o.text.startsWith('Special direct')) {
+        seen++;
+        assert.match(o.mistake, /±5°/);
+      }
+    }
+  }
+  assert.ok(seen > 0, 'no Teardrop/Special direct single option appeared');
 });

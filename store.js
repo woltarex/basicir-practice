@@ -15,7 +15,12 @@ export function load(storage) {
     const d = JSON.parse(storageOr(storage).getItem(KEY));
     if (d && d.version === 1) {
       const def = defaults();
-      return { ...def, ...d, settings: { ...def.settings, ...d.settings } };
+      return {
+        ...def, ...d,
+        settings: { ...def.settings, ...d.settings },
+        stats: d.stats && typeof d.stats === 'object' && !Array.isArray(d.stats) ? d.stats : def.stats,
+        mistakes: Array.isArray(d.mistakes) ? d.mistakes : def.mistakes,
+      };
     }
   } catch { /* blocked or corrupt → defaults */ }
   return defaults();

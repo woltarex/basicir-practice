@@ -40,3 +40,12 @@ test('record: stats, mistakes added on wrong, removed on right', () => {
   assert.equal(d.mistakes.length, 0);
   assert.equal(d.stats['45'].correct, 1);
 });
+
+test('null stats/mistakes in saved data → usable defaults', () => {
+  const st = memory();
+  st.setItem('basicir.v1', '{"version":1,"stats":null,"mistakes":null}');
+  const d = load(st);
+  assert.deepEqual(d.stats, {});
+  assert.deepEqual(d.mistakes, []);
+  assert.doesNotThrow(() => record(d, { statKey: '45', correct: false, ms: 1, scenario: { id: 'a' } }));
+});
