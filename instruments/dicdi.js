@@ -5,8 +5,9 @@ export function dicdi({ hdg, obs, flag }) {
   const plane = `<path d="M100 70 v60 M70 98 h60 M88 124 h24" stroke="#f08a24" stroke-width="5" fill="none" stroke-linecap="round"/>`;
   const di = svg(bezel('HDG') + card('card', hdg) + plane + lubber, 'Heading indicator');
   const flagBox =
-    `<rect x="124" y="60" width="34" height="18" rx="2" fill="#000" stroke="#555"/>` +
-    `<text id="flag" data-flag="${flag}" x="141" y="74" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">${flag === 'TO' ? 'TO ▲' : 'FR ▼'}</text>`;
+    // Kept inside radius ~56 so it never covers the card numerals (which start at radius 58).
+    `<rect x="110" y="66" width="34" height="18" rx="2" fill="#000" stroke="#555"/>` +
+    `<text id="flag" data-flag="${flag}" x="127" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">${flag === 'TO' ? 'TO ▲' : 'FR ▼'}</text>`;
   // Deviation dots across the middle, with the centre circle the needle sits in when on course.
   const dots = [-40, -30, -20, -10, 10, 20, 30, 40].map((x) => `<circle cx="${100 + x}" cy="100" r="2.5" fill="#eee"/>`).join('');
   const ring = `<circle cx="100" cy="100" r="6" fill="none" stroke="#eee" stroke-width="2"/>`;
