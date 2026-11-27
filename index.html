@@ -62,6 +62,11 @@
     .qgrid.two { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 24px; align-items: start; }
   }
   .qgrid.paused #instrument, .qgrid.paused #prompt, .qgrid.paused #options { visibility: hidden; }
+  dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: var(--card); color: var(--fg); width: min(720px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgb(0 0 0 / .5); }
+  .sheet { padding: 16px; }
+  .sheet h2 { margin-top: 0; } .sheet h3 { font-size: 1rem; margin: 16px 0 4px; }
+  table.ref th, table.ref td { text-align: left; padding: 4px 8px 4px 0; }
 </style>
 </head>
 <body>
@@ -70,6 +75,7 @@
     <div class="head">
       <h1>IR Drill — interception &amp; holding</h1>
       <span class="tools">
+        <button id="rulesSetup" class="mini secondary">? Rules</button>
         <select name="theme" aria-label="Theme">
           <option value="system">System</option>
           <option value="light">Light</option>
@@ -111,7 +117,7 @@
   <section id="quiz" hidden>
     <div class="top">
       <span id="progress"></span>
-      <span class="tools"><b id="clock"></b><button id="pause" class="mini secondary">Pause</button><button id="finish" class="mini secondary">End</button></span>
+      <span class="tools"><b id="clock"></b><button id="rulesQuiz" class="mini secondary">? Rules</button><button id="pause" class="mini secondary">Pause</button><button id="finish" class="mini secondary">End</button></span>
     </div>
     <div class="bar" id="bar"><div id="timebar"></div></div>
     <button id="resume" class="secondary" hidden>Paused — Resume (P)</button>
@@ -142,6 +148,32 @@
     <table id="alltime"></table>
     <button id="again">Back to setup</button>
   </section>
+  <dialog id="refDialog" aria-labelledby="refTitle">
+    <div class="sheet">
+      <h2 id="refTitle">Rules</h2>
+      <h3>Interception</h3>
+      <p class="muted">Δ = angle between the radial you are on and the required radial.</p>
+      <table class="ref">
+        <tr><th>|Δ|</th><th>Type</th><th>Tracks</th></tr>
+        <tr><td>&lt; 15°</td><td>Correction</td><td>required track ± min(2·|Δ|, 30°)</td></tr>
+        <tr><td>15°–30°</td><td>45°</td><td>required track ± 45°</td></tr>
+        <tr><td>30°–70°</td><td>90°/45°</td><td>initial ± 90°, then interception ± 45°</td></tr>
+        <tr><td>&gt; 70° (outbound)</td><td>Over-station</td><td>track to the station, then radial ± min(round(|s| / 3), 30°)</td></tr>
+      </table>
+      <p class="muted">s = difference between the track to the station and the required radial.</p>
+      <h3>Holding entry</h3>
+      <p class="muted">STD: d = track to fix − inbound. Non-STD: d = inbound − track to fix.</p>
+      <div class="pair" id="refSectors"></div>
+      <ul>
+        <li>0–70° and 290–360°: <b>Direct</b> — turn to the outbound track</li>
+        <li>70–110°: <b>Special direct</b> — hold your track 15 s, turn to outbound, 45 s</li>
+        <li>110–180°: <b>Teardrop</b> — outbound ∓ 30° (STD −30°, Non-STD +30°)</li>
+        <li>180–290°: <b>Parallel</b> — fly the outbound track on the non-holding side</li>
+        <li>Within ±5° of 110°, 180° or 290°: <b>Either</b> of the two neighbouring entries</li>
+      </ul>
+      <form method="dialog"><button>Close</button></form>
+    </div>
+  </dialog>
 </main>
 <script type="module" src="app.js"></script>
 </body>

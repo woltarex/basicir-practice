@@ -1,5 +1,6 @@
 import { mulberry32, makeScenario, buildQuestion, emphasisParts } from './generator.js';
 import { renderInstrument, overlay } from './instruments/index.js';
+import { sectorDiagram } from './instruments/overlay.js';
 import { load, save, record } from './store.js';
 
 const $ = (id) => document.getElementById(id);
@@ -317,8 +318,14 @@ const disarmEnd = twoClick($('finish'), 'Confirm end?',
 $('pause').addEventListener('click', () => setPaused(!session.paused));
 $('resume').addEventListener('click', () => setPaused(false));
 $('again').addEventListener('click', () => { fillSetup(); show('setup'); });
+$('refSectors').innerHTML = sectorDiagram('std') + sectorDiagram('nonstd'); // trusted SVG from our renderer
+$('rulesSetup').addEventListener('click', () => $('refDialog').showModal());
+// Opening the sheet mid-question pauses the timer (no-op when answered or untimed); resume with P.
+$('rulesQuiz').addEventListener('click', () => { setPaused(true); $('refDialog').showModal(); });
+$('refDialog').addEventListener('click', (e) => { if (e.target === $('refDialog')) $('refDialog').close(); });
 
 document.addEventListener('keydown', (e) => {
+  if ($('refDialog').open) return;
   if (!$('setup').hidden) {
     if (e.key === 'Enter' && !e.target.closest('button, summary, select')) {
       e.preventDefault();
