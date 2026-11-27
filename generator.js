@@ -210,3 +210,20 @@ export function readingSteps(s) {
     ? `${what}: course ${fmt(obs)}° centred with FROM flag → you are on R-${fmt(P)}, heading ${fmt(s.hdg)}°`
     : `${what}: course ${fmt(obs)}° centred with TO flag → QDM ${fmt(obs)}°, you are on R-${fmt(P)}, heading ${fmt(s.hdg)}°`];
 }
+
+// Option label → [{ text, bold }]: the leading phrase (up to the first comma or bracket) and every
+// 3-digit track are bold. The app renders these as DOM nodes, never as HTML.
+export function emphasisParts(text) {
+  const cut = text.search(/[,(]/);
+  const lead = cut === -1 ? text : text.slice(0, cut);
+  const rest = cut === -1 ? '' : text.slice(cut);
+  const parts = [{ text: lead, bold: true }];
+  let last = 0;
+  for (const m of rest.matchAll(/\b\d{3}°/g)) {
+    if (m.index > last) parts.push({ text: rest.slice(last, m.index), bold: false });
+    parts.push({ text: m[0], bold: true });
+    last = m.index + m[0].length;
+  }
+  if (last < rest.length) parts.push({ text: rest.slice(last), bold: false });
+  return parts;
+}

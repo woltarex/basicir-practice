@@ -1,4 +1,4 @@
-import { mulberry32, makeScenario, buildQuestion } from './generator.js';
+import { mulberry32, makeScenario, buildQuestion, emphasisParts } from './generator.js';
 import { renderInstrument, overlay } from './instruments/index.js';
 import { load, save, record } from './store.js';
 
@@ -69,11 +69,53 @@ function setupError() {
 
 function show(id) {
   for (const sec of ['setup', 'quiz', 'end']) $(sec).hidden = sec !== id;
+  document.querySelector('main').classList.toggle('wide', id === 'quiz');
+}
+
+// Two columns on wide screens whenever there is a drawing to show.
+function layout() {
+  $('qgrid').classList.toggle('two', $('instrument').innerHTML !== '');
+}
+
+// Two-click guard: the first click arms `btn` for 3 s, the second runs `action`.
+// `needsConfirm()` returning false runs `action` on the first click.
+function twoClick(btn, confirmText, action, needsConfirm = () => true) {
+  const label = btn.textContent;
+  let timer = null;
+  const disarm = () => { clearTimeout(timer); timer = null; btn.textContent = label; };
+  btn.addEventListener('click', () => {
+    if (timer === null && needsConfirm()) {
+      btn.textContent = confirmText;
+      timer = setTimeout(disarm, 3000);
+      return;
+    }
+    disarm();
+    action();
+  });
+  return disarm;
+}
+
+function optionButton(o, idx) {
+  const b = document.createElement('button');
+  b.className = 'opt';
+  const key = document.createElement('kbd');
+  key.textContent = String(idx + 1);
+  const label = document.createElement('span');
+  for (const p of emphasisParts(o.text)) {
+    if (!p.bold) { label.append(p.text); continue; }
+    const strong = document.createElement('strong');
+    strong.textContent = p.text;
+    label.append(strong);
+  }
+  b.append(key, label);
+  b.addEventListener('click', () => answer(idx));
+  return b;
 }
 
 // ---------- session ----------
 
 function start(review) {
+  disarmEnd();
   readSetup();
   const err = review ? '' : setupError();
   $('setupError').hidden = !err;
@@ -99,16 +141,10 @@ function nextQuestion() {
   $('progress').textContent = session.n ? `${session.i} / ${session.n}` : `#${session.i}`;
   $('prompt').textContent = q.prompt;
   $('instrument').innerHTML = renderInstrument(s);
+  layout();
   $('feedback').hidden = true;
-  const opts = $('options');
-  opts.innerHTML = '';
-  q.options.forEach((o, idx) => {
-    const b = document.createElement('button');
-    b.className = 'opt';
-    b.textContent = `${idx + 1} · ${o.text}`;
-    b.addEventListener('click', () => answer(idx));
-    opts.append(b);
-  });
+  $('options').replaceChildren(...q.options.map(optionButton));
+  $('legend').replaceChildren();
 
   session.startedAt = performance.now();
   session.deadline = data.settings.timer ? session.startedAt + data.settings.timer * 1000 : null;
@@ -153,6 +189,7 @@ function answer(idx) {
       : `✗ ${q.options[idx].mistake} (${(ms / 1000).toFixed(1)} s)`;
   // Redraw the instrument (or a compass rose in numbers mode) with the solution on it.
   $('instrument').innerHTML = renderInstrument(q.scenario, q.result);
+  layout();
   $('legend').replaceChildren(...overlay(q.scenario, q.result, 0).legend.map(({ color, text }) => {
     const li = document.createElement('li');
     const sw = document.createElement('span');
@@ -214,7 +251,9 @@ function endSession() {
 $('start').addEventListener('click', () => start(false));
 $('review').addEventListener('click', () => start(true));
 $('next').addEventListener('click', nextQuestion);
-$('finish').addEventListener('click', () => (session.log.length ? endSession() : (session = null, fillSetup(), show('setup'))));
+const disarmEnd = twoClick($('finish'), 'Confirm end?',
+  () => (session.log.length ? endSession() : (session = null, fillSetup(), show('setup'))),
+  () => session.log.length > 0);
 $('again').addEventListener('click', () => { fillSetup(); show('setup'); });
 
 document.addEventListener('keydown', (e) => {
@@ -226,10 +265,11 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (!session || $('quiz').hidden) return;
+  if (e.target.matches('input, select, textarea')) return;
   if (!session.answered && /^[1-5]$/.test(e.key)) {
     const idx = Number(e.key) - 1;
     if (idx < session.q.options.length) answer(idx);
-  } else if (session.answered && e.key === 'Enter' && e.target.id !== 'finish') {
+  } else if (session.answered && (e.key === 'Enter' || e.key === ' ') && !e.target.closest('button, summary')) {
     e.preventDefault();
     nextQuestion();
   }

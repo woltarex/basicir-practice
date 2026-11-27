@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mulberry32, makeScenario, buildQuestion, BANDS } from '../generator.js';
+import { mulberry32, makeScenario, buildQuestion, BANDS, emphasisParts } from '../generator.js';
 import { sdiff } from '../rules.js';
 
 const ALL = { types: ['intercept', 'hold'], display: 'mixed', instruments: ['rmi', 'hsi', 'dicdi'] };
@@ -87,5 +87,22 @@ test('holding instruments show heading = track to fix; HSI/DI+CDI never show an 
     const s = makeScenario(rng, set, `h${i}`);
     assert.equal(s.hdg, s.trk);
     if (s.display === 'hsi' || s.display === 'dicdi') assert.equal(s.nav, 'VOR');
+  }
+});
+
+test('emphasisParts bolds the leading phrase and every 3-digit track, and keeps the text', () => {
+  const t = '90°/45°, initial track 260°, interception track 215°';
+  const p = emphasisParts(t);
+  assert.equal(p.map((x) => x.text).join(''), t);
+  assert.deepEqual(p.filter((x) => x.bold).map((x) => x.text), ['90°/45°', '260°', '215°']);
+  assert.deepEqual(emphasisParts('Either Teardrop or Parallel'), [{ text: 'Either Teardrop or Parallel', bold: true }]);
+  const o = emphasisParts('Track to station (270°), then over-station interception track 170°');
+  assert.deepEqual(o.filter((x) => x.bold).map((x) => x.text), ['Track to station ', '270°', '170°']);
+  // Every generated option survives the split unchanged.
+  const rng = mulberry32(9);
+  for (let i = 0; i < 2000; i++) {
+    for (const opt of buildQuestion(makeScenario(rng, ALL, String(i)), rng).options) {
+      assert.equal(emphasisParts(opt.text).map((x) => x.text).join(''), opt.text);
+    }
   }
 });
