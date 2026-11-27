@@ -44,13 +44,13 @@ export function interception({ radial, dir, pos }) {
     const track = norm(T + k * angle);
     steps.push(`Δ < 15° → correction, angle = 2 × ${a} = ${2 * a}°${2 * a > 30 ? ' → capped at 30°' : ''}`);
     steps.push(`Track = ${fmt(T)} ${k > 0 ? '+' : '−'} ${angle} = ${fmt(track)}° (initial = interception)`);
-    return { kind: 'intercept', type, initial: track, intercept: track, steps };
+    return { kind: 'intercept', type, track: T, initial: track, intercept: track, steps };
   }
   if (type === '45') {
     const track = norm(T + k * 45);
     steps.push(`15° ≤ Δ ≤ 30° → 45° intercept`);
     steps.push(`Track = ${fmt(T)} ${k > 0 ? '+' : '−'} 45 = ${fmt(track)}° (initial = interception)`);
-    return { kind: 'intercept', type, initial: track, intercept: track, steps };
+    return { kind: 'intercept', type, track: T, initial: track, intercept: track, steps };
   }
   if (type === '90/45') {
     const initial = norm(T + k * 90);
@@ -58,7 +58,7 @@ export function interception({ radial, dir, pos }) {
     steps.push(`30° < Δ ≤ 70° → 90°/45° intercept`);
     steps.push(`Initial track = ${fmt(T)} ${k > 0 ? '+' : '−'} 90 = ${fmt(initial)}°`);
     steps.push(`Interception track = ${fmt(T)} ${k > 0 ? '+' : '−'} 45 = ${fmt(intercept)}°`);
-    return { kind: 'intercept', type, initial, intercept, steps };
+    return { kind: 'intercept', type, track: T, initial, intercept, steps };
   }
   if (dir === 'inbound') throw new Error('Inbound interception with Δ > 70° is out of scope');
   const K = norm(P + 180);
@@ -68,7 +68,7 @@ export function interception({ radial, dir, pos }) {
   steps.push(`Δ > 70° → track to the station first: QDM ${fmt(K)}°`);
   steps.push(`After passing: TRK difference = ${Math.abs(s)}°, angle = ${Math.abs(s)} / 3 = ${Math.round(Math.abs(s) / 3)}°${Math.round(Math.abs(s) / 3) > 30 ? ' → capped at 30°' : ''}`);
   steps.push(`Interception track = ${fmt(R)} ${s >= 0 ? '−' : '+'} ${angle} = ${fmt(intercept)}°`);
-  return { kind: 'intercept', type, initial: K, intercept, steps };
+  return { kind: 'intercept', type, track: T, initial: K, intercept, steps };
 }
 
 export function interceptText({ type, initial, intercept }) {
@@ -154,4 +154,59 @@ export function cdiReading(obs, P) {
   if (Math.abs(Math.abs(fromDiff) - 90) <= 1) return { flag: 'OFF', deflection: 0 };
   if (Math.abs(fromDiff) < 90) return { flag: 'FROM', deflection: -fromDiff || 0 }; // || 0: never -0
   return { flag: 'TO', deflection: sdiff(obs, norm(P + 180)) };
+}
+
+// ---------- free-input grading ----------
+
+// '' / NaN → missing. Otherwise the first matching diagnosis, or null when exact (after norm).
+function trackError(got, want, { mirror = null, mirrored, reciprocal }) {
+  if (!Number.isFinite(got)) return 'missing track';
+  const g = norm(got);
+  if (g === want) return null;
+  if (mirror !== null && g === norm(2 * mirror - want)) return mirrored;
+  if (g === norm(want + 180)) return reciprocal;
+  return `track off by ${Math.abs(sdiff(want, g))}°`;
+}
+
+// result: interception() or holding() result. Mistake labels never contain a comma.
+// Interception input: { type, initial, intercept } — initial only counts for 90/45 and over-station.
+// Holding input: { entry, eitherPair, initial } — for special direct `initial` is the outbound track.
+export function gradeFreeInput(result, input) {
+  const ok = { correct: true, mistake: null };
+  const bad = (mistake) => ({ correct: false, mistake });
+  if (result.kind === 'intercept') {
+    if (input.type !== result.type) return bad('wrong interception type');
+    const over = result.type === 'overstation';
+    const fields = result.type === '90/45' || over ? ['initial', 'intercept'] : ['intercept'];
+    for (const k of fields) {
+      const err = trackError(input[k], result[k], {
+        mirror: over && k === 'initial' ? null : result.track,
+        mirrored: over ? 'over-station interception on the wrong side' : 'wrong side of the radial',
+        reciprocal: 'reciprocal (radial ↔ QDM mix-up)',
+      });
+      if (err) return bad(err);
+    }
+    return ok;
+  }
+  if (result.either) {
+    if (input.entry === 'either') {
+      const pair = input.eitherPair ?? [];
+      return pair.length === 2 && result.either.every((e) => pair.includes(e)) ? ok : bad('wrong boundary');
+    }
+    return bad(result.either.includes(input.entry)
+      ? 'inside ±5° of a sector boundary the answer is "Either …" — not a single entry'
+      : 'wrong sector');
+  }
+  if (input.entry === 'either') return bad('not near a sector boundary (±5°)');
+  if (input.entry !== result.entry) return bad('wrong sector');
+  const want = result.entry === 'special' ? result.outbound : result.initial;
+  if (result.entry === 'special' && Number.isFinite(input.initial) && norm(input.initial) === result.trk) {
+    return bad('typed the 15 s track instead of the outbound track');
+  }
+  const err = trackError(input.initial, want, {
+    mirror: result.entry === 'teardrop' ? result.outbound : null,
+    mirrored: 'teardrop on the wrong side',
+    reciprocal: 'reciprocal track (inbound ↔ outbound mix-up)',
+  });
+  return err ? bad(err) : ok;
 }

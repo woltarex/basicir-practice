@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { norm, sdiff, fmt, interception, interceptBand, interceptText, cdiReading } from '../rules.js';
+import { norm, sdiff, fmt, interception, interceptBand, interceptText, cdiReading, gradeFreeInput } from '../rules.js';
 import { holding, holdText, sectorOf } from '../rules.js';
 
 test('angle helpers', () => {
@@ -167,4 +167,60 @@ test('cdiReading reads back to your radial whenever on scale', () => {
     assert.notEqual(flag, 'OFF');
     assert.equal(flag === 'FROM' ? norm(obs - deflection) : norm(obs + 180 + deflection), P);
   }
+});
+
+const graded = (r, input) => {
+  const g = gradeFreeInput(r, input);
+  if (g.mistake) assert.ok(!g.mistake.includes(','), `comma in label: ${g.mistake}`);
+  return g;
+};
+
+test('gradeFreeInput: interception exact, normalised, and diagnosed', () => {
+  const r = interception({ radial: 350, dir: 'inbound', pos: 35 }); // 90/45, 260 / 215, required track 170
+  assert.equal(r.track, 170);
+  assert.deepEqual(graded(r, { type: '90/45', initial: 260, intercept: 215 }), { correct: true, mistake: null });
+  assert.equal(graded(r, { type: '90/45', initial: 620, intercept: 215 }).correct, true);
+  assert.equal(graded(r, { type: '45', initial: 260, intercept: 215 }).mistake, 'wrong interception type');
+  assert.equal(graded(r, { type: '90/45', initial: 80, intercept: 125 }).mistake, 'wrong side of the radial');
+  assert.equal(graded(r, { type: '90/45', initial: 260, intercept: 35 }).mistake, 'reciprocal (radial ↔ QDM mix-up)');
+  assert.equal(graded(r, { type: '90/45', initial: 260, intercept: 220 }).mistake, 'track off by 5°');
+  assert.equal(graded(r, { type: '90/45', initial: NaN, intercept: 215 }).mistake, 'missing track');
+});
+
+test('gradeFreeInput: correction and 45 ignore the initial field', () => {
+  const r = interception({ radial: 250, dir: 'outbound', pos: 255 }); // correction 240
+  assert.equal(graded(r, { type: 'correction', initial: NaN, intercept: 240 }).correct, true);
+  assert.equal(graded(r, { type: 'correction', initial: 7, intercept: 240 }).correct, true);
+});
+
+test('gradeFreeInput: over-station', () => {
+  const r = interception({ radial: 195, dir: 'outbound', pos: 90 }); // to station 270, then 170
+  assert.equal(graded(r, { type: 'overstation', initial: 270, intercept: 170 }).correct, true);
+  assert.equal(graded(r, { type: 'overstation', initial: 270, intercept: 220 }).mistake, 'over-station interception on the wrong side');
+  assert.equal(graded(r, { type: 'overstation', initial: 90, intercept: 170 }).mistake, 'reciprocal (radial ↔ QDM mix-up)');
+});
+
+test('gradeFreeInput: holding entries and tracks', () => {
+  const td = holding({ inbound: 14, turn: 'std', trk: 164 }); // teardrop 164, outbound 194
+  assert.equal(graded(td, { entry: 'teardrop', initial: 164 }).correct, true);
+  assert.equal(graded(td, { entry: 'teardrop', initial: 224 }).mistake, 'teardrop on the wrong side');
+  assert.equal(graded(td, { entry: 'parallel', initial: 194 }).mistake, 'wrong sector');
+  assert.equal(graded(td, { entry: 'either', eitherPair: ['teardrop', 'parallel'] }).mistake, 'not near a sector boundary (±5°)');
+  // Special direct: the user types the outbound track flown after the 15 s leg.
+  const sp = holding({ inbound: 270, turn: 'std', trk: 0 }); // outbound 090
+  assert.equal(graded(sp, { entry: 'special', initial: 90 }).correct, true);
+  assert.equal(graded(sp, { entry: 'special', initial: 0 }).mistake, 'typed the 15 s track instead of the outbound track');
+  const di = holding({ inbound: 0, turn: 'nonstd', trk: 20 }); // direct, outbound 180
+  assert.equal(graded(di, { entry: 'direct', initial: 180 }).correct, true);
+  assert.equal(graded(di, { entry: 'direct', initial: 0 }).mistake, 'reciprocal track (inbound ↔ outbound mix-up)');
+  assert.equal(graded(di, { entry: 'direct', initial: NaN }).mistake, 'missing track');
+});
+
+test('gradeFreeInput: either zones need the right unordered pair', () => {
+  const r = holding({ inbound: 0, turn: 'std', trk: 105 }); // either special / teardrop
+  assert.equal(graded(r, { entry: 'either', eitherPair: ['teardrop', 'special'] }).correct, true);
+  assert.equal(graded(r, { entry: 'either', eitherPair: ['teardrop', 'parallel'] }).mistake, 'wrong boundary');
+  assert.equal(graded(r, { entry: 'either', eitherPair: null }).mistake, 'wrong boundary');
+  assert.match(graded(r, { entry: 'teardrop', initial: 150 }).mistake, /±5°/);
+  assert.equal(graded(r, { entry: 'parallel', initial: 180 }).mistake, 'wrong sector');
 });
