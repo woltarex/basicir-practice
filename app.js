@@ -538,3 +538,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 fillSetup();
+
+try {
+  navigator.serviceWorker?.register('./sw.js').catch(() => {});
+} catch { /* no service worker support */ }
