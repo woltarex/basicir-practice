@@ -61,7 +61,8 @@
     main.wide { max-width: 980px; }
     .qgrid.two { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 24px; align-items: start; }
   }
-  .qgrid.paused #instrument, .qgrid.paused #prompt, .qgrid.paused #options { visibility: hidden; }
+  .obsbar { width: 100%; justify-content: center; margin: 4px 0; font-variant-numeric: tabular-nums; }
+  .qgrid.paused #instrument, .qgrid.paused #prompt, .qgrid.paused #options, .qgrid.paused #obsBar { visibility: hidden; }
   dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: var(--card); color: var(--fg); width: min(720px, calc(100vw - 32px)); }
   dialog::backdrop { background: rgb(0 0 0 / .5); }
   .sheet { padding: 16px; } .sheet:focus { outline: none; }
@@ -107,6 +108,11 @@
       <label><input type="checkbox" name="instruments" value="rmi"> RMI</label>
       <label><input type="checkbox" name="instruments" value="hsi"> HSI</label>
       <label><input type="checkbox" name="instruments" value="dicdi"> DI + CDI</label>
+    </fieldset>
+    <fieldset id="cdiSet"><legend>HSI / CDI needle</legend>
+      <label><input type="radio" name="cdiMode" value="centered"> Centred</label>
+      <label><input type="radio" name="cdiMode" value="deflected"> Deflected (read the dots)</label>
+      <label><input type="radio" name="cdiMode" value="interactive"> Turn the OBS yourself</label>
     </fieldset>
     <fieldset><legend>Countdown per question (s, 0 = off)</legend>
       <label><input type="radio" name="timerPreset" value="0"> Off</label>
@@ -164,6 +170,13 @@
     <div class="qgrid" id="qgrid">
       <div class="col-left">
         <div id="instrument"></div>
+        <div id="obsBar" class="tools obsbar" hidden>
+          <button class="mini secondary" data-d="-10">−10°</button>
+          <button class="mini secondary" data-d="-1">−1°</button>
+          <b id="obsValue"></b>
+          <button class="mini secondary" data-d="1">+1°</button>
+          <button class="mini secondary" data-d="10">+10°</button>
+        </div>
         <div id="viewToggles" class="tools toggles"></div>
         <ul class="legend" id="legend"></ul>
       </div>

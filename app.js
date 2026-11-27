@@ -1,6 +1,7 @@
 import { mulberry32, makeScenario, buildQuestion, emphasisParts, setupError, summarize } from './generator.js';
 import { renderInstrument, overlay } from './instruments/index.js';
 import { sectorDiagram } from './instruments/overlay.js';
+import { norm, fmt } from './rules.js';
 import { load, save, record, recordSession, clearMistakes, resetStats, historyAverage } from './store.js';
 
 const $ = (id) => document.getElementById(id);
@@ -16,6 +17,7 @@ function applyTheme() {
 // Grey out controls that do nothing for the current choice.
 function syncSetup() {
   $('instrumentsSet').disabled = data.settings.display === 'numbers';
+  $('cdiSet').disabled = data.settings.display === 'numbers';
 }
 
 const data = load();
@@ -28,6 +30,7 @@ function fillSetup() {
   form.querySelectorAll('[name=types]').forEach((el) => (el.checked = s.types.includes(el.value)));
   form.querySelectorAll('[name=instruments]').forEach((el) => (el.checked = s.instruments.includes(el.value)));
   form.querySelectorAll('[name=display]').forEach((el) => (el.checked = el.value === s.display));
+  form.querySelectorAll('[name=cdiMode]').forEach((el) => (el.checked = el.value === s.cdiMode));
   form.querySelectorAll('[name=length]').forEach((el) => (el.checked = Number(el.value) === s.length));
   form.querySelectorAll('[name=timerPreset]').forEach((el) => (el.checked = Number(el.value) === s.timer));
   form.querySelector('[name=timer]').value = s.timer;
@@ -52,6 +55,7 @@ function readSetup() {
     types: checked('types'),
     instruments: checked('instruments'),
     display: checked('display')[0] ?? 'numbers',
+    cdiMode: checked('cdiMode')[0] ?? 'centered',
     length: Number(checked('length')[0] ?? 20),
     timer,
     theme: form.querySelector('[name=theme]').value,
@@ -147,12 +151,16 @@ function nextQuestion() {
     : makeScenario(session.rng, data.settings, `${session.seed}-${session.i}`, data.stats);
   const q = buildQuestion(s, session.rng);
   session.q = q;
+  const interactive = data.settings.cdiMode === 'interactive' && s.obs != null;
+  session.liveObs = interactive ? s.obs : null;
+  $('obsBar').hidden = !interactive;
+  if (interactive) $('obsValue').textContent = `OBS ${fmt(s.obs)}°`;
   session.answered = false;
   session.i++;
 
   $('progress').textContent = session.n ? `${session.i} / ${session.n}` : `#${session.i}`;
   $('prompt').textContent = q.prompt;
-  $('instrument').innerHTML = renderInstrument(s);
+  $('instrument').innerHTML = renderInstrument(liveScenario());
   layout();
   $('feedback').hidden = true;
   $('options').replaceChildren(...q.options.map(optionButton));
@@ -172,10 +180,25 @@ function nextQuestion() {
   tick();
 }
 
+// The scenario as currently shown: in interactive mode the user's OBS replaces the generated one.
+function liveScenario() {
+  const s = session.q.scenario;
+  return session.liveObs == null ? s : { ...s, obs: session.liveObs };
+}
+
+// Re-renders only the instrument; the timer keeps running.
+function turnObs(delta) {
+  if (session?.liveObs == null || session.paused) return;
+  session.liveObs = norm(session.liveObs + delta);
+  $('obsValue').textContent = `OBS ${fmt(session.liveObs)}°`;
+  if (session.answered) drawSolution();
+  else { $('instrument').innerHTML = renderInstrument(liveScenario()); layout(); }
+}
+
 function drawSolution() {
   const q = session.q, v = session.view;
   const numbers = q.scenario.display === 'numbers'; // the rose is the only drawing there: overlay/frame choices do not apply
-  $('instrument').innerHTML = renderInstrument(q.scenario, v.overlay || numbers ? q.result : null, { northUp: v.northUp });
+  $('instrument').innerHTML = renderInstrument(liveScenario(), v.overlay || numbers ? q.result : null, { northUp: v.northUp });
   $('legend').hidden = !v.overlay && !numbers;
   layout();
 }
@@ -357,6 +380,10 @@ const disarmEnd = twoClick($('finish'), 'Confirm end?',
   () => session.log.length > 0);
 twoClick($('clearMistakes'), 'Click again to confirm', () => { clearMistakes(data); save(data); fillSetup(); });
 twoClick($('resetStats'), 'Click again to confirm', () => { resetStats(data); save(data); fillSetup(); });
+$('obsBar').addEventListener('click', (e) => {
+  const d = e.target.closest('button')?.dataset.d;
+  if (d) turnObs(Number(d));
+});
 $('pause').addEventListener('click', () => setPaused(!session.paused));
 $('resume').addEventListener('click', () => setPaused(false));
 $('again').addEventListener('click', () => { fillSetup(); show('setup'); });
@@ -384,6 +411,11 @@ document.addEventListener('keydown', (e) => {
   if (e.key === ' ' && !e.target.closest('button, summary')) e.preventDefault(); // no page scroll
   if ((e.key === 'p' || e.key === 'P') && !(e.ctrlKey || e.metaKey || e.altKey)) { setPaused(!session.paused); return; }
   if (session.paused) return;
+  if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
+    e.preventDefault();
+    turnObs((e.code === 'BracketRight' ? 1 : -1) * (e.shiftKey ? 10 : 1));
+    return;
+  }
   if (!session.answered && /^[1-5]$/.test(e.key)) {
     const idx = Number(e.key) - 1;
     if (idx < session.q.options.length) answer(idx);
