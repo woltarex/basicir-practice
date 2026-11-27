@@ -322,7 +322,11 @@ $('refSectors').innerHTML = sectorDiagram('std') + sectorDiagram('nonstd'); // t
 $('rulesSetup').addEventListener('click', () => $('refDialog').showModal());
 // Opening the sheet mid-question pauses the timer (no-op when answered or untimed); resume with P.
 $('rulesQuiz').addEventListener('click', () => { setPaused(true); $('refDialog').showModal(); });
-$('refDialog').addEventListener('click', (e) => { if (e.target === $('refDialog')) $('refDialog').close(); });
+let downOnBackdrop = false; // a drag that starts inside the sheet and ends on the backdrop must not close it
+$('refDialog').addEventListener('mousedown', (e) => { downOnBackdrop = e.target === $('refDialog'); });
+$('refDialog').addEventListener('click', (e) => { if (e.target === $('refDialog') && downOnBackdrop) $('refDialog').close(); });
+// Focus returns to the Rules button on close; on an answered question hand it to Next so Enter advances.
+$('refDialog').addEventListener('close', () => { if (session?.answered && !$('quiz').hidden) $('next').focus(); });
 
 document.addEventListener('keydown', (e) => {
   if ($('refDialog').open) return;
