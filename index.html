@@ -64,7 +64,7 @@
   .qgrid.paused #instrument, .qgrid.paused #prompt, .qgrid.paused #options { visibility: hidden; }
   dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: var(--card); color: var(--fg); width: min(720px, calc(100vw - 32px)); }
   dialog::backdrop { background: rgb(0 0 0 / .5); }
-  .sheet { padding: 16px; }
+  .sheet { padding: 16px; } .sheet:focus { outline: none; }
   .sheet h2 { margin-top: 0; } .sheet h3 { font-size: 1rem; margin: 16px 0 4px; }
   table.ref th, table.ref td { text-align: left; padding: 4px 8px 4px 0; }
 </style>
@@ -149,7 +149,7 @@
     <button id="again">Back to setup</button>
   </section>
   <dialog id="refDialog" aria-labelledby="refTitle">
-    <div class="sheet">
+    <div class="sheet" tabindex="-1" autofocus>
       <h2 id="refTitle">Rules</h2>
       <h3>Interception</h3>
       <p class="muted">Δ = angle between the radial you are on and the required radial.</p>
