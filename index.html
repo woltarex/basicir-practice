@@ -57,6 +57,7 @@
     main.wide { max-width: 980px; }
     .qgrid.two { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 24px; align-items: start; }
   }
+  .qgrid.paused #instrument, .qgrid.paused #prompt, .qgrid.paused #options { visibility: hidden; }
 </style>
 </head>
 <body>
@@ -106,9 +107,10 @@
   <section id="quiz" hidden>
     <div class="top">
       <span id="progress"></span>
-      <span class="tools"><b id="clock"></b><button id="finish" class="mini secondary">End</button></span>
+      <span class="tools"><b id="clock"></b><button id="pause" class="mini secondary">Pause</button><button id="finish" class="mini secondary">End</button></span>
     </div>
-    <div class="bar"><div id="timebar"></div></div>
+    <div class="bar" id="bar"><div id="timebar"></div></div>
+    <button id="resume" class="secondary" hidden>Paused — Resume (P)</button>
     <div class="qgrid" id="qgrid">
       <div class="col-left">
         <div id="instrument"></div>

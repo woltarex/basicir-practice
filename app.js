@@ -146,28 +146,53 @@ function nextQuestion() {
   $('options').replaceChildren(...q.options.map(optionButton));
   $('legend').replaceChildren();
 
+  session.paused = false;
+  $('qgrid').classList.remove('paused');
+  $('resume').hidden = true;
+  $('pause').textContent = 'Pause';
   session.startedAt = performance.now();
   session.deadline = data.settings.timer ? session.startedAt + data.settings.timer * 1000 : null;
+  $('bar').hidden = session.deadline === null;
+  $('clock').textContent = '';
+  $('pause').disabled = session.deadline === null;
+  $('timebar').style.background = '';
   tick();
 }
 
 function tick() {
-  if (!session || session.answered) return;
-  if (session.deadline === null) {
-    $('clock').textContent = '';
-    $('timebar').style.width = '0%';
-    return;
-  }
+  if (!session || session.answered || session.paused || session.deadline === null) return;
   const left = session.deadline - performance.now();
   if (left <= 0) return answer(null);
+  const total = data.settings.timer * 1000;
   $('clock').textContent = `⏱ ${Math.ceil(left / 1000)} s`;
-  $('timebar').style.width = `${(left / (data.settings.timer * 1000)) * 100}%`;
+  const bar = $('timebar');
+  bar.style.width = `${(left / total) * 100}%`;
+  bar.style.background = left <= 5000 ? 'var(--bad)' : left <= total / 4 ? 'var(--warn)' : '';
   requestAnimationFrame(tick);
+}
+
+// Pausing hides the question so the clock cannot be dodged; answer time excludes the pause.
+function setPaused(on) {
+  if (!session || session.answered || session.deadline === null || session.paused === on) return;
+  const now = performance.now();
+  if (on) {
+    session.remainingMs = session.deadline - now;
+    session.pausedAt = now;
+  } else {
+    session.deadline = now + session.remainingMs;
+    session.startedAt += now - session.pausedAt;
+  }
+  session.paused = on;
+  $('qgrid').classList.toggle('paused', on);
+  $('resume').hidden = !on;
+  $('pause').textContent = on ? 'Resume' : 'Pause';
+  if (!on) tick();
 }
 
 function answer(idx) {
   if (session.answered) return;
   session.answered = true;
+  $('pause').disabled = true;
   const q = session.q;
   const ms = Math.round(performance.now() - session.startedAt);
   const correct = idx === q.correctIndex;
@@ -254,6 +279,8 @@ $('next').addEventListener('click', nextQuestion);
 const disarmEnd = twoClick($('finish'), 'Confirm end?',
   () => (session.log.length ? endSession() : (session = null, fillSetup(), show('setup'))),
   () => session.log.length > 0);
+$('pause').addEventListener('click', () => setPaused(!session.paused));
+$('resume').addEventListener('click', () => setPaused(false));
 $('again').addEventListener('click', () => { fillSetup(); show('setup'); });
 
 document.addEventListener('keydown', (e) => {
@@ -266,6 +293,8 @@ document.addEventListener('keydown', (e) => {
   }
   if (!session || $('quiz').hidden) return;
   if (e.target.matches('input, select, textarea')) return;
+  if (e.key === 'p' || e.key === 'P') { setPaused(!session.paused); return; }
+  if (session.paused) return;
   if (!session.answered && /^[1-5]$/.test(e.key)) {
     const idx = Number(e.key) - 1;
     if (idx < session.q.options.length) answer(idx);
