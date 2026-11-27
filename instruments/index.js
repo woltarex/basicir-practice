@@ -6,9 +6,10 @@ import { card, bezel, svg } from './card.js';
 import { overlay } from './overlay.js';
 
 // Without a result: the question's instrument (nothing in numbers mode).
-// With a result: the same instrument with the solution drawn on it; numbers mode gets a north-up compass rose.
-export function renderInstrument(s, result = null) {
-  if (s.display === 'numbers') {
+// With a result: the same instrument with the solution drawn on it; numbers mode — or northUp — gets a
+// north-up compass rose with the solution instead.
+export function renderInstrument(s, result = null, { northUp = false } = {}) {
+  if (s.display === 'numbers' || (northUp && result)) {
     return result ? svg(bezel('SOLUTION') + card('card', 0) + overlay(s, result, 0).svg, 'Solution diagram') : '';
   }
   const st = instrumentState(s);

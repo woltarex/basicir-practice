@@ -105,3 +105,14 @@ test('buildQuestion exposes the rule result for the overlay', () => {
   assert.equal(q.result.type, '90/45');
   assert.equal(norm(q.result.initial), 260);
 });
+
+test('northUp: an instrument question with a result gets the north-up SOLUTION rose', () => {
+  const s = ic({ radial: 350, pos: 35, display: 'rmi', hdg: 120 });
+  const svg = renderInstrument(s, solve(s), { northUp: true });
+  assert.match(svg, /SOLUTION/);
+  assert.equal(overlayRot(svg), 0);
+  assert.match(svg, /id="card" transform="rotate\(0 100 100\)"/);
+  assert.ok(!svg.includes('id="needle"'));
+  // Without a result northUp has nothing to draw, so the question's instrument comes back.
+  assert.ok(renderInstrument(s, null, { northUp: true }).includes('id="needle"'));
+});

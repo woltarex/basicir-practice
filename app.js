@@ -126,7 +126,7 @@ function start(review) {
   if (err) return;
   const seed = Date.now() >>> 0;
   const queue = review ? [...data.mistakes] : null;
-  session = { seed, rng: mulberry32(seed), review, queue, i: 0, n: review ? queue.length : data.settings.length, log: [] };
+  session = { seed, rng: mulberry32(seed), review, queue, i: 0, n: review ? queue.length : data.settings.length, log: [], view: { overlay: true, northUp: false } };
   show('quiz');
   nextQuestion();
 }
@@ -148,6 +148,7 @@ function nextQuestion() {
   $('feedback').hidden = true;
   $('options').replaceChildren(...q.options.map(optionButton));
   $('legend').replaceChildren();
+  $('viewToggles').replaceChildren();
 
   session.paused = false;
   $('qgrid').classList.remove('paused');
@@ -160,6 +161,33 @@ function nextQuestion() {
   $('pause').disabled = session.deadline === null;
   $('timebar').style.background = '';
   tick();
+}
+
+function drawSolution() {
+  const q = session.q, v = session.view;
+  $('instrument').innerHTML = renderInstrument(q.scenario, v.overlay ? q.result : null, { northUp: v.northUp });
+  layout();
+}
+
+// Overlay On/Off and Instrument/North-up pills under the instrument (instrument questions only).
+function renderToggles(focusIndex = -1) {
+  const box = $('viewToggles');
+  const v = session.view;
+  if (session.q.scenario.display === 'numbers') return box.replaceChildren();
+  const pill = (text, pressed, disabled, onClick) => {
+    const b = document.createElement('button');
+    b.className = 'mini secondary pill';
+    b.textContent = text;
+    b.disabled = disabled;
+    b.setAttribute('aria-pressed', String(pressed));
+    b.addEventListener('click', onClick);
+    return b;
+  };
+  box.replaceChildren(
+    pill(`Overlay: ${v.overlay ? 'On' : 'Off'}`, v.overlay, false, () => { v.overlay = !v.overlay; drawSolution(); renderToggles(0); }),
+    pill(`Frame: ${v.northUp ? 'North-up' : 'Instrument'}`, v.northUp, !v.overlay, () => { v.northUp = !v.northUp; drawSolution(); renderToggles(1); }),
+  );
+  box.children[focusIndex]?.focus();
 }
 
 function tick() {
@@ -218,8 +246,8 @@ function answer(idx) {
       ? '✗ Time is up'
       : `✗ ${q.options[idx].mistake} (${(ms / 1000).toFixed(1)} s)`;
   // Redraw the instrument (or a compass rose in numbers mode) with the solution on it.
-  $('instrument').innerHTML = renderInstrument(q.scenario, q.result);
-  layout();
+  drawSolution();
+  renderToggles();
   $('legend').replaceChildren(...overlay(q.scenario, q.result, 0).legend.map(({ color, text }) => {
     const li = document.createElement('li');
     const sw = document.createElement('span');

@@ -53,6 +53,8 @@
   .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
   .head h1 { margin: 0; }
   .tools { display: inline-flex; align-items: center; gap: 8px; }
+  .toggles { margin: 4px 0 8px; justify-content: center; width: 100%; }
+  button.pill[aria-pressed="true"] { border-color: var(--accent); }
   button.mini { width: auto; margin: 0; padding: 4px 10px; font-size: .85rem; }
   kbd { font: 600 .8rem ui-monospace, monospace; border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; color: var(--muted); flex: none; }
   @media (min-width: 900px) {
@@ -116,6 +118,7 @@
     <div class="qgrid" id="qgrid">
       <div class="col-left">
         <div id="instrument"></div>
+        <div id="viewToggles" class="tools toggles"></div>
         <ul class="legend" id="legend"></ul>
       </div>
       <div class="col-right">
