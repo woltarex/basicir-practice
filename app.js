@@ -345,6 +345,8 @@ function answer(idx) {
 function resolve(correct, mistake, idx) {
   if (session.answered || session.paused) return;
   session.answered = true;
+  session.answeredAt = performance.now();
+  session.timedOut = mistake === 'ran out of time';
   $('pause').disabled = true;
   const q = session.q;
   const ms = Math.round(performance.now() - session.startedAt);
@@ -461,7 +463,17 @@ function endSession() {
 
 $('start').addEventListener('click', () => start(false));
 $('review').addEventListener('click', () => start(true));
-$('next').addEventListener('click', nextQuestion);
+// A timeout steals focus to Next; an Enter the user was already pressing must not skip the "Time is up" feedback.
+function goNext() {
+  if (session.timedOut && performance.now() - session.answeredAt < 600) return;
+  nextQuestion();
+}
+$('next').addEventListener('click', goNext);
+for (const id of ['fiInitial', 'fiIntercept']) {
+  $(id).addEventListener('keydown', (e) => {
+    if (e.key.length === 1 && (session?.paused || !/[0-9]/.test(e.key)) && !(e.ctrlKey || e.metaKey || e.altKey)) e.preventDefault(); // digits only, nothing while paused
+  });
+}
 const disarmEnd = twoClick($('finish'), 'Confirm end?',
   () => (session.log.length ? endSession() : (session = null, fillSetup(), show('setup'))),
   () => session.log.length > 0);
@@ -470,6 +482,7 @@ twoClick($('resetStats'), 'Click again to confirm', () => { resetStats(data); sa
 $('obsBar').addEventListener('click', (e) => {
   const d = e.target.closest('button')?.dataset.d;
   if (d) turnObs(Number(d));
+  if (d && session?.answered) $('next').focus(); // Enter must advance, not turn the OBS again
 });
 $('freeInput').addEventListener('submit', (e) => { e.preventDefault(); submitFree(); });
 $('pause').addEventListener('click', () => setPaused(!session.paused));
@@ -495,7 +508,12 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (!session || $('quiz').hidden) return;
-  if (e.target.matches('input, select, textarea')) return;
+  if (e.target.matches('input, select, textarea')) {
+    // P and the OBS bracket keys still work from inside a track field (it never accepts those characters).
+    const hot = e.target.matches('#fiInitial, #fiIntercept') && !(e.ctrlKey || e.metaKey || e.altKey)
+      && (e.key === 'p' || e.key === 'P' || e.code === 'BracketLeft' || e.code === 'BracketRight');
+    if (!hot) return;
+  }
   if (e.key === ' ' && !e.target.closest('button, summary')) e.preventDefault(); // no page scroll
   if ((e.key === 'p' || e.key === 'P') && !(e.ctrlKey || e.metaKey || e.altKey)) { setPaused(!session.paused); return; }
   if (session.paused) return;
@@ -515,7 +533,7 @@ document.addEventListener('keydown', (e) => {
     } else if (idx < session.q.options.length) answer(idx);
   } else if (session.answered && (e.key === 'Enter' || e.key === ' ') && !e.target.closest('button, summary')) {
     e.preventDefault();
-    nextQuestion();
+    goNext();
   }
 });
 
