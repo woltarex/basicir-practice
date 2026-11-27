@@ -289,14 +289,17 @@ function fillTable(table, rows) {
   }));
 }
 
+// Stored stats limited to keys we know, so a tampered key like "constructor" never renders.
+const knownStats = () => Object.fromEntries(Object.entries(data.stats).filter(([k]) => Object.hasOwn(LABEL, k)));
+
 function alltimeRows() {
-  return Object.entries(data.stats)
+  return Object.entries(knownStats())
     .filter(([, v]) => v && Number(v.total) > 0)
     .map(([k, v]) => [LABEL[k] ?? k, `${Math.round((100 * v.correct) / v.total)}% of ${v.total} · ${(v.ms / v.total / 1000).toFixed(1)} s`]);
 }
 
 function renderSummary() {
-  const sum = summarize(data.stats);
+  const sum = summarize(knownStats());
   $('summary').hidden = sum.total === 0;
   if (!sum.total) return;
   $('summaryLine').textContent = `Overall ${Math.round((100 * sum.correct) / sum.total)}% (${sum.correct} / ${sum.total}) · ` +
@@ -322,7 +325,9 @@ function endSession() {
   if (prev) {
     const dAcc = Math.round(100 * (right / log.length - prev.acc));
     const dSec = (avgMs - prev.avgMs) / 1000;
-    $('delta').textContent = `vs your average: accuracy ${dAcc >= 0 ? '+' : '−'}${Math.abs(dAcc)} points · time ${dSec >= 0 ? '+' : '−'}${Math.abs(dSec).toFixed(1)} s`;
+    const secText = Math.abs(dSec).toFixed(1);
+    const sign = (zero, d) => (zero ? '±' : d >= 0 ? '+' : '−');
+    $('delta').textContent = `vs your average: accuracy ${sign(dAcc === 0, dAcc)}${Math.abs(dAcc)} points · time ${sign(secText === '0.0', dSec)}${secText} s`;
   }
 
   const per = {};
