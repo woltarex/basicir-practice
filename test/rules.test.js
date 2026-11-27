@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { norm, sdiff, fmt, interception, interceptBand, interceptText } from '../rules.js';
+import { norm, sdiff, fmt, interception, interceptBand, interceptText, cdiReading } from '../rules.js';
 import { holding, holdText, sectorOf } from '../rules.js';
 
 test('angle helpers', () => {
@@ -138,4 +138,33 @@ test('Non-STD mirrors STD', () => {
 test('every result has worked steps', () => {
   assert.ok(interception({ radial: 10, dir: 'outbound', pos: 200 }).steps.length >= 4);
   assert.ok(holding({ inbound: 10, turn: 'std', trk: 10 }).steps.length >= 4);
+});
+
+test('cdiReading: FROM side, needle toward the course (positive = fly right)', () => {
+  // On R-095 with OBS 090 FROM you are right (south) of R-090 outbound → fly left → needle left.
+  assert.deepEqual(cdiReading(90, 95), { flag: 'FROM', deflection: -5 });
+  assert.deepEqual(cdiReading(90, 85), { flag: 'FROM', deflection: 5 });
+  assert.deepEqual(cdiReading(0, 0), { flag: 'FROM', deflection: 0 });
+  assert.deepEqual(cdiReading(355, 5), { flag: 'FROM', deflection: -10 });
+});
+
+test('cdiReading: TO side', () => {
+  // On R-095 with OBS 270 TO: QDM 275, course R-090 inbound is to your right → needle right.
+  assert.deepEqual(cdiReading(270, 95), { flag: 'TO', deflection: 5 });
+  assert.deepEqual(cdiReading(270, 85), { flag: 'TO', deflection: -5 });
+  assert.deepEqual(cdiReading(180, 0), { flag: 'TO', deflection: 0 });
+});
+
+test('cdiReading: OFF within ±1° of abeam, readable again just outside', () => {
+  for (const P of [89, 90, 91, 269, 270, 271]) assert.equal(cdiReading(0, P).flag, 'OFF');
+  assert.deepEqual(cdiReading(0, 88), { flag: 'FROM', deflection: -88 });
+  assert.deepEqual(cdiReading(0, 92), { flag: 'TO', deflection: -88 });
+});
+
+test('cdiReading reads back to your radial whenever on scale', () => {
+  for (let obs = 0; obs < 360; obs += 7) for (let off = -10; off <= 10; off++) for (const P of [norm(obs + off), norm(obs + 180 + off)]) {
+    const { flag, deflection } = cdiReading(obs, P);
+    assert.notEqual(flag, 'OFF');
+    assert.equal(flag === 'FROM' ? norm(obs - deflection) : norm(obs + 180 + deflection), P);
+  }
 });

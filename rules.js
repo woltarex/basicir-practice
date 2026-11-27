@@ -143,3 +143,15 @@ export function holdText({ entry, either, turn, initial, trk, outbound }) {
   if (entry === 'special') return `Special direct, hold ${fmt(trk)}° for 15 s, then turn ${dirWord} to TRK ${fmt(outbound)}°`;
   return `${ENTRY_NAME[entry]}, initial track ${fmt(initial)}°`;
 }
+
+// ---------- VOR CDI ----------
+
+// What a CDI/HSI shows for selected course `obs` when you are on radial `P`.
+// deflection: signed degrees off course, positive = needle right (fly right). Not clamped; full scale is ±10°.
+// Within ±1° of abeam the flag is OFF.
+export function cdiReading(obs, P) {
+  const fromDiff = sdiff(obs, P);
+  if (Math.abs(Math.abs(fromDiff) - 90) <= 1) return { flag: 'OFF', deflection: 0 };
+  if (Math.abs(fromDiff) < 90) return { flag: 'FROM', deflection: -fromDiff || 0 }; // || 0: never -0
+  return { flag: 'TO', deflection: sdiff(obs, norm(P + 180)) };
+}
