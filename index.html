@@ -62,7 +62,8 @@
     .qgrid.two { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 24px; align-items: start; }
   }
   .obsbar { width: 100%; justify-content: center; margin: 4px 0; font-variant-numeric: tabular-nums; }
-  .qgrid.paused #instrument, .qgrid.paused #prompt, .qgrid.paused #options, .qgrid.paused #obsBar { visibility: hidden; }
+  .free { margin-top: 12px; } .seg { flex-wrap: wrap; margin: 0 0 8px; } .seg button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .qgrid.paused #instrument, .qgrid.paused #prompt, .qgrid.paused #options, .qgrid.paused #freeInput, .qgrid.paused #obsBar { visibility: hidden; }
   dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: var(--card); color: var(--fg); width: min(720px, calc(100vw - 32px)); }
   dialog::backdrop { background: rgb(0 0 0 / .5); }
   .sheet { padding: 16px; } .sheet:focus { outline: none; }
@@ -127,6 +128,8 @@
       <label><input type="radio" name="length" value="0"> Endless</label>
     </fieldset>
     <fieldset id="trainingSet"><legend>Training</legend>
+      <label><input type="radio" name="answerMode" value="mc"> Multiple choice</label>
+      <label><input type="radio" name="answerMode" value="input"> Type answer</label>
       <label><input type="checkbox" name="adaptive"> Prioritize weak spots (uses your stats)</label>
     </fieldset>
     <details id="advancedFilters">
@@ -183,6 +186,16 @@
       <div class="col-right">
         <p class="prompt" id="prompt"></p>
         <div class="options" id="options"></div>
+        <form id="freeInput" class="free" hidden autocomplete="off" novalidate>
+          <div class="tools seg" id="fiChoices" role="group" aria-label="Answer type"></div>
+          <div class="tools seg" id="fiPair" role="group" aria-label="Either pair" hidden></div>
+          <label id="fiInitialRow"><span id="fiInitialLabel">Initial track</span>
+            <input id="fiInitial" inputmode="numeric" pattern="[0-9]*" maxlength="3" size="4"></label>
+          <label id="fiInterceptRow"><span id="fiInterceptLabel">Interception track</span>
+            <input id="fiIntercept" inputmode="numeric" pattern="[0-9]*" maxlength="3" size="4"></label>
+          <p id="fiHint" class="muted" hidden>Pick a type first.</p>
+          <button type="submit" id="fiSubmit">Check answer</button>
+        </form>
         <div id="feedback" hidden>
           <p class="verdict" id="verdict"></p>
           <ol class="steps" id="steps"></ol>

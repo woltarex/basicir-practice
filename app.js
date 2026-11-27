@@ -1,7 +1,7 @@
 import { mulberry32, makeScenario, buildQuestion, emphasisParts, setupError, summarize, instrumentState } from './generator.js';
 import { renderInstrument, overlay } from './instruments/index.js';
 import { sectorDiagram } from './instruments/overlay.js';
-import { norm, fmt } from './rules.js';
+import { norm, fmt, gradeFreeInput, EITHER_PAIRS } from './rules.js';
 import { load, save, record, recordSession, clearMistakes, resetStats, historyAverage } from './store.js';
 
 const $ = (id) => document.getElementById(id);
@@ -31,6 +31,7 @@ function fillSetup() {
   form.querySelectorAll('[name=instruments]').forEach((el) => (el.checked = s.instruments.includes(el.value)));
   form.querySelectorAll('[name=display]').forEach((el) => (el.checked = el.value === s.display));
   form.querySelectorAll('[name=cdiMode]').forEach((el) => (el.checked = el.value === s.cdiMode));
+  form.querySelectorAll('[name=answerMode]').forEach((el) => (el.checked = el.value === s.answerMode));
   form.querySelectorAll('[name=length]').forEach((el) => (el.checked = Number(el.value) === s.length));
   form.querySelectorAll('[name=timerPreset]').forEach((el) => (el.checked = Number(el.value) === s.timer));
   form.querySelector('[name=timer]').value = s.timer;
@@ -56,6 +57,7 @@ function readSetup() {
     instruments: checked('instruments'),
     display: checked('display')[0] ?? 'numbers',
     cdiMode: checked('cdiMode')[0] ?? 'centered',
+    answerMode: checked('answerMode')[0] ?? 'mc',
     length: Number(checked('length')[0] ?? 20),
     timer,
     theme: form.querySelector('[name=theme]').value,
@@ -139,7 +141,7 @@ function start(review) {
   if (err) return;
   const seed = Date.now() >>> 0;
   const queue = review ? [...data.mistakes] : null;
-  session = { seed, rng: mulberry32(seed), review, queue, i: 0, n: review ? queue.length : data.settings.length, log: [], view: { overlay: true, northUp: false } };
+  session = { seed, mode: data.settings.answerMode, rng: mulberry32(seed), review, queue, i: 0, n: review ? queue.length : data.settings.length, log: [], view: { overlay: true, northUp: false } };
   show('quiz');
   nextQuestion();
 }
@@ -166,6 +168,10 @@ function nextQuestion() {
   layout();
   $('feedback').hidden = true;
   $('options').replaceChildren(...q.options.map(optionButton));
+  const typed = session.mode === 'input';
+  $('options').hidden = typed;
+  $('freeInput').hidden = !typed;
+  if (typed) setupFree();
   $('legend').replaceChildren();
   $('viewToggles').replaceChildren();
 
@@ -258,29 +264,108 @@ function setPaused(on) {
   if (!on) tick();
 }
 
+const CHOICES = {
+  intercept: [['correction', 'Correction'], ['45', '45°'], ['90/45', '90°/45°'], ['overstation', 'Over-station']],
+  hold: [['direct', 'Direct'], ['special', 'Special direct'], ['teardrop', 'Teardrop'], ['parallel', 'Parallel'], ['either', 'Either …']],
+};
+const PAIR_NAME = { direct: 'Direct', special: 'Special direct', teardrop: 'Teardrop', parallel: 'Parallel' };
+
+function segButtons(box, items, selected, onPick, keyed) {
+  box.replaceChildren(...items.map(([value, text], i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'mini secondary';
+    b.setAttribute('aria-pressed', String(value === selected));
+    if (keyed) { const k = document.createElement('kbd'); k.textContent = String(i + 1); b.append(k, ' '); }
+    b.append(text);
+    b.addEventListener('click', () => onPick(value));
+    return b;
+  }));
+}
+
+// Show only the fields the chosen answer type needs, with the right labels.
+function syncFree() {
+  const { choice, pair } = session.free;
+  const kind = session.q.result.kind;
+  const intercept = kind === 'intercept';
+  const two = choice === '90/45' || choice === 'overstation';
+  segButtons($('fiChoices'), CHOICES[kind], choice, pickChoice, true);
+  $('fiPair').hidden = choice !== 'either';
+  if (choice === 'either') {
+    segButtons($('fiPair'), EITHER_PAIRS.map((p) => [p.join('|'), p.map((e) => PAIR_NAME[e]).join(' / ')]), pair?.join('|'),
+      (v) => { session.free.pair = v.split('|'); syncFree(); $('fiSubmit').focus(); }, false);
+  }
+  $('fiInitialRow').hidden = intercept ? !two : choice === null || choice === 'either';
+  $('fiInterceptRow').hidden = !intercept || choice === null;
+  $('fiInitialLabel').textContent = intercept
+    ? (choice === 'overstation' ? 'Track to station' : 'Initial track')
+    : (choice === 'special' ? 'Outbound track after 15 s' : 'Initial track');
+  $('fiInterceptLabel').textContent = two ? 'Interception track' : 'Track (initial = interception)';
+}
+
+function pickChoice(value) {
+  if (session.answered || session.paused) return;
+  session.free.choice = value;
+  if (value !== 'either') session.free.pair = null;
+  $('fiHint').hidden = true;
+  syncFree();
+  const field = [$('fiInitial'), $('fiIntercept')].find((el) => !el.closest('label').hidden);
+  (field ?? $('fiPair').querySelector('button'))?.focus();
+}
+
+function setupFree() {
+  session.free = { choice: null, pair: null };
+  $('fiInitial').value = '';
+  $('fiIntercept').value = '';
+  $('fiHint').hidden = true;
+  for (const el of $('freeInput').elements) el.disabled = false;
+  syncFree();
+  $('fiChoices').querySelector('button').focus();
+}
+
+function submitFree() {
+  if (session.answered || session.paused) return;
+  const { choice, pair } = session.free;
+  if (!choice) { $('fiHint').hidden = false; return; }
+  const num = (id) => ($(id).value.trim() === '' ? NaN : Number($(id).value));
+  const q = session.q;
+  const input = q.result.kind === 'intercept'
+    ? { type: choice, initial: num('fiInitial'), intercept: num('fiIntercept') }
+    : { entry: choice, eitherPair: pair, initial: num('fiInitial') };
+  const { correct, mistake } = gradeFreeInput(q.result, input);
+  resolve(correct, mistake, null);
+}
+
 function answer(idx) {
+  const q = session.q;
+  resolve(idx === q.correctIndex, idx === null ? 'ran out of time' : q.options[idx].mistake, idx);
+}
+
+// Shared by multiple choice (idx = option, or null on timeout) and typed answers (idx = null).
+function resolve(correct, mistake, idx) {
   if (session.answered || session.paused) return;
   session.answered = true;
   $('pause').disabled = true;
   const q = session.q;
   const ms = Math.round(performance.now() - session.startedAt);
-  const correct = idx === q.correctIndex;
   record(data, { statKey: q.statKey, correct, ms, scenario: q.scenario });
   save(data);
-  session.log.push({ statKey: q.statKey, correct, ms, mistake: idx === null ? 'ran out of time' : q.options[idx].mistake });
+  session.log.push({ statKey: q.statKey, correct, ms, mistake });
 
   [...$('options').children].forEach((b, i) => {
     b.disabled = true;
     if (i === q.correctIndex) b.classList.add('correct');
     if (i === idx && !correct) b.classList.add('wrong');
   });
+  for (const el of $('freeInput').elements) el.disabled = true;
   const v = $('verdict');
   v.className = `verdict ${correct ? 'ok' : 'bad'}`;
+  const answerText = session.mode === 'input' && !correct ? ` — answer: ${q.options[q.correctIndex].text}` : '';
   v.textContent = correct
     ? `✓ Correct (${(ms / 1000).toFixed(1)} s)`
-    : idx === null
-      ? '✗ Time is up'
-      : `✗ ${q.options[idx].mistake} (${(ms / 1000).toFixed(1)} s)`;
+    : mistake === 'ran out of time'
+      ? `✗ Time is up${answerText}`
+      : `✗ ${mistake} (${(ms / 1000).toFixed(1)} s)${answerText}`;
   // Redraw the instrument (or a compass rose in numbers mode) with the solution on it.
   drawSolution();
   renderToggles();
@@ -386,6 +471,7 @@ $('obsBar').addEventListener('click', (e) => {
   const d = e.target.closest('button')?.dataset.d;
   if (d) turnObs(Number(d));
 });
+$('freeInput').addEventListener('submit', (e) => { e.preventDefault(); submitFree(); });
 $('pause').addEventListener('click', () => setPaused(!session.paused));
 $('resume').addEventListener('click', () => setPaused(false));
 $('again').addEventListener('click', () => { fillSetup(); show('setup'); });
@@ -420,7 +506,13 @@ document.addEventListener('keydown', (e) => {
   }
   if (!session.answered && /^[1-5]$/.test(e.key)) {
     const idx = Number(e.key) - 1;
-    if (idx < session.q.options.length) answer(idx);
+    if (session.mode === 'input') {
+      const item = CHOICES[session.q.result.kind][idx];
+      if (item) {
+        e.preventDefault(); // the focus jump must not also type this digit into the field
+        pickChoice(item[0]);
+      }
+    } else if (idx < session.q.options.length) answer(idx);
   } else if (session.answered && (e.key === 'Enter' || e.key === ' ') && !e.target.closest('button, summary')) {
     e.preventDefault();
     nextQuestion();
