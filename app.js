@@ -285,7 +285,7 @@ $('again').addEventListener('click', () => { fillSetup(); show('setup'); });
 
 document.addEventListener('keydown', (e) => {
   if (!$('setup').hidden) {
-    if (e.key === 'Enter' && !e.target.closest('button, summary')) {
+    if (e.key === 'Enter' && !e.target.closest('button, summary, select')) {
       e.preventDefault();
       start(false);
     }

@@ -35,6 +35,8 @@
   .options { display: grid; gap: 8px; margin-top: 12px; }
   .opt { text-align: left; background: var(--card); color: var(--fg); border: 1px solid var(--line); margin: 0; display: flex; gap: 10px; align-items: baseline; font-variant-numeric: tabular-nums; }
   .opt.correct { border: 2px solid var(--ok); } .opt.wrong { border: 2px solid var(--bad); }
+  .opt:disabled { opacity: .55; }
+  .opt.correct:disabled, .opt.wrong:disabled { opacity: 1; }
   .verdict.ok { color: var(--ok); } .verdict.bad { color: var(--bad); }
   ul.legend { list-style: none; padding: 0; margin: 0 0 8px; font-size: .9rem; }
   ul.legend li { display: flex; align-items: center; gap: 8px; margin: 2px 0; }
