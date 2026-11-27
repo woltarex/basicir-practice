@@ -1,4 +1,4 @@
-import { mulberry32, makeScenario, buildQuestion, emphasisParts, setupError, summarize } from './generator.js';
+import { mulberry32, makeScenario, buildQuestion, emphasisParts, setupError, summarize, instrumentState } from './generator.js';
 import { renderInstrument, overlay } from './instruments/index.js';
 import { sectorDiagram } from './instruments/overlay.js';
 import { norm, fmt } from './rules.js';
@@ -151,7 +151,9 @@ function nextQuestion() {
     : makeScenario(session.rng, data.settings, `${session.seed}-${session.i}`, data.stats);
   const q = buildQuestion(s, session.rng);
   session.q = q;
-  const interactive = data.settings.cdiMode === 'interactive' && s.obs != null;
+  // Reviewed interactive scenarios keep their stored OBS: give the control back if it is unreadable as stored.
+  const st = s.obs != null ? instrumentState(s) : null;
+  const interactive = st != null && (data.settings.cdiMode === 'interactive' || st.flag === 'OFF' || Math.abs(st.deflection) > 10);
   session.liveObs = interactive ? s.obs : null;
   $('obsBar').hidden = !interactive;
   if (interactive) $('obsValue').textContent = `OBS ${fmt(s.obs)}°`;
