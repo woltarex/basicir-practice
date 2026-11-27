@@ -6,6 +6,17 @@ const $ = (id) => document.getElementById(id);
 const form = $('setup');
 const LABEL = { correction: 'Correction', '45': '45° intercept', '90/45': '90°/45° intercept', overstation: 'Over station', holding: 'Holding' };
 
+function applyTheme() {
+  const t = data.settings.theme;
+  if (t === 'system') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = t;
+}
+
+// Grey out controls that do nothing for the current choice.
+function syncSetup() {
+  $('instrumentsSet').disabled = data.settings.display === 'numbers';
+}
+
 const data = load();
 let session = null; // { rng, review, queue, i, n, log: [], q, startedAt, deadline, answered }
 
@@ -21,6 +32,9 @@ function fillSetup() {
   form.querySelector('[name=timer]').value = s.timer;
   $('review').textContent = `Review mistakes (${data.mistakes.length})`;
   $('review').disabled = data.mistakes.length === 0;
+  form.querySelector('[name=theme]').value = s.theme;
+  applyTheme();
+  syncSetup();
 }
 
 function readSetup() {
@@ -33,8 +47,11 @@ function readSetup() {
     display: checked('display')[0] ?? 'numbers',
     length: Number(checked('length')[0] ?? 20),
     timer,
+    theme: form.querySelector('[name=theme]').value,
   };
   save(data);
+  applyTheme();
+  syncSetup();
 }
 
 form.addEventListener('change', (e) => {
@@ -201,6 +218,13 @@ $('finish').addEventListener('click', () => (session.log.length ? endSession() :
 $('again').addEventListener('click', () => { fillSetup(); show('setup'); });
 
 document.addEventListener('keydown', (e) => {
+  if (!$('setup').hidden) {
+    if (e.key === 'Enter' && !e.target.closest('button, summary')) {
+      e.preventDefault();
+      start(false);
+    }
+    return;
+  }
   if (!session || $('quiz').hidden) return;
   if (!session.answered && /^[1-5]$/.test(e.key)) {
     const idx = Number(e.key) - 1;
