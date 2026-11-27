@@ -183,6 +183,7 @@ test('gradeFreeInput: interception exact, normalised, and diagnosed', () => {
   assert.equal(graded(r, { type: '45', initial: 260, intercept: 215 }).mistake, 'wrong interception type');
   assert.equal(graded(r, { type: '90/45', initial: 80, intercept: 125 }).mistake, 'wrong side of the radial');
   assert.equal(graded(r, { type: '90/45', initial: 260, intercept: 35 }).mistake, 'reciprocal (radial ↔ QDM mix-up)');
+  assert.equal(graded(r, { type: '90/45', initial: 80, intercept: 35 }).mistake, 'reciprocal (radial ↔ QDM mix-up)');
   assert.equal(graded(r, { type: '90/45', initial: 260, intercept: 220 }).mistake, 'track off by 5°');
   assert.equal(graded(r, { type: '90/45', initial: NaN, intercept: 215 }).mistake, 'missing track');
 });
@@ -191,6 +192,7 @@ test('gradeFreeInput: correction and 45 ignore the initial field', () => {
   const r = interception({ radial: 250, dir: 'outbound', pos: 255 }); // correction 240
   assert.equal(graded(r, { type: 'correction', initial: NaN, intercept: 240 }).correct, true);
   assert.equal(graded(r, { type: 'correction', initial: 7, intercept: 240 }).correct, true);
+  assert.equal(graded(r, { type: 'correction', initial: NaN, intercept: 245 }).mistake, 'correction angle not doubled');
 });
 
 test('gradeFreeInput: over-station', () => {
@@ -205,6 +207,9 @@ test('gradeFreeInput: holding entries and tracks', () => {
   assert.equal(graded(td, { entry: 'teardrop', initial: 164 }).correct, true);
   assert.equal(graded(td, { entry: 'teardrop', initial: 224 }).mistake, 'teardrop on the wrong side');
   assert.equal(graded(td, { entry: 'parallel', initial: 194 }).mistake, 'wrong sector');
+  const pa = holding({ inbound: 0, turn: 'std', trk: 230 }); // parallel, outbound 180
+  assert.equal(graded(pa, { entry: 'parallel', initial: 150 }).mistake, 'teardrop track flown on a parallel entry');
+  assert.equal(graded(pa, { entry: 'parallel', initial: 210 }).mistake, 'teardrop track flown on a parallel entry');
   assert.equal(graded(td, { entry: 'either', eitherPair: ['teardrop', 'parallel'] }).mistake, 'not near a sector boundary (±5°)');
   // Special direct: the user types the outbound track flown after the 15 s leg.
   const sp = holding({ inbound: 270, turn: 'std', trk: 0 }); // outbound 090

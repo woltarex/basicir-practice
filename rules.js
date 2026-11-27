@@ -177,7 +177,14 @@ export function gradeFreeInput(result, input) {
   if (result.kind === 'intercept') {
     if (input.type !== result.type) return bad('wrong interception type');
     const over = result.type === 'overstation';
-    const fields = result.type === '90/45' || over ? ['initial', 'intercept'] : ['intercept'];
+    const fields = result.type === '90/45' || over ? ['intercept', 'initial'] : ['intercept'];
+    // intercept first: a fully reciprocal 90/45 answer is a QDM mix-up (the mirror of the initial equals its reciprocal).
+    const half = Math.abs(sdiff(result.track, result.intercept)) / 2;
+    if (result.type === 'correction' && Number.isFinite(input.intercept)
+      && norm(input.intercept) === norm(result.track + Math.sign(sdiff(result.track, result.intercept)) * half)
+      && half > 0) {
+      return bad('correction angle not doubled');
+    }
     for (const k of fields) {
       const err = trackError(input[k], result[k], {
         mirror: over && k === 'initial' ? null : result.track,
@@ -199,6 +206,10 @@ export function gradeFreeInput(result, input) {
   }
   if (input.entry === 'either') return bad('not near a sector boundary (±5°)');
   if (input.entry !== result.entry) return bad('wrong sector');
+  if (result.entry === 'parallel' && Number.isFinite(input.initial)
+    && [30, -30].some((o) => norm(input.initial) === norm(result.outbound + o))) {
+    return bad('teardrop track flown on a parallel entry');
+  }
   const want = result.entry === 'special' ? result.outbound : result.initial;
   if (result.entry === 'special' && Number.isFinite(input.initial) && norm(input.initial) === result.trk) {
     return bad('typed the 15 s track instead of the outbound track');
