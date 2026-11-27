@@ -3,6 +3,7 @@ import {
   norm, sdiff, fmt, interception, interceptText, holding, holdText,
   ENTRIES, EITHER_PAIRS, entryInitial,
 } from './rules.js';
+import { defaults } from './store.js';
 
 export function mulberry32(seed) {
   let a = seed >>> 0;
@@ -34,33 +35,42 @@ export const BANDS = {
   overstation: [72, 175],
 };
 
-// settings: { types: ['intercept','hold'], display: 'numbers'|'instruments'|'mixed', instruments: ['rmi','hsi','dicdi'] }
+const DEFAULT_FILTERS = defaults().settings.filters;
+const INBOUND_BANDS = ['correction', '45', '90/45']; // inbound has no over-station band
+const only = (all, chosen) => all.filter((x) => chosen.includes(x)); // keeps the canonical draw order
+const bandsFor = (dir, bands) => only(dir === 'inbound' ? INBOUND_BANDS : Object.keys(BANDS), bands);
+const filtersOf = (settings) => ({ ...DEFAULT_FILTERS, ...settings.filters });
+
+// settings: { types, display, instruments, filters? } — see store.js defaults().
 export function makeScenario(rng, settings, id) {
+  const f = filtersOf(settings);
   const kind = pick(rng, settings.types);
-  const display = pickDisplay(rng, settings);
+  // HSI and DI+CDI only show VOR holds, so NDB-only holds stay on the RMI or numbers.
+  const vorOk = kind === 'intercept' || f.navs.includes('VOR');
+  const display = pickDisplay(rng, vorOk ? settings : { ...settings, instruments: only(['rmi'], settings.instruments) });
   const flag = pick(rng, ['TO', 'FROM']);
   if (kind === 'intercept') {
-    const dir = pick(rng, ['inbound', 'outbound']);
-    const band = pick(rng, dir === 'inbound' ? ['correction', '45', '90/45'] : Object.keys(BANDS));
+    const dir = pick(rng, only(['inbound', 'outbound'], f.dirs).filter((d) => bandsFor(d, f.bands).length));
+    const band = pick(rng, bandsFor(dir, f.bands));
     const [lo, hi] = BANDS[band];
     const radial = int(rng, 0, 359);
     const pos = norm(radial + (rng() < 0.5 ? -1 : 1) * int(rng, lo, hi));
     return {
       id, kind, display, flag, radial, dir, pos,
-      phrasing: pick(rng, ['radial', 'q']),
+      phrasing: pick(rng, only(['radial', 'q'], f.phrasings)),
       dist: int(rng, 30, 120) / 10,
       hdg: int(rng, 0, 359),
       gs: pick(rng, [90, 100, 110, 120, 140]),
     };
   }
   const inbound = int(rng, 0, 359);
-  const turn = pick(rng, ['std', 'nonstd']);
-  // ~20% land in a ±5° either zone.
-  const d = rng() < 0.2 ? pick(rng, [110, 180, 290]) + int(rng, -5, 5) : int(rng, 0, 359);
+  const turn = pick(rng, only(['std', 'nonstd'], f.turns));
+  // ~20% (or ~80% with boundaryFocus) land in a ±5° either zone.
+  const d = rng() < (f.boundaryFocus ? 0.8 : 0.2) ? pick(rng, [110, 180, 290]) + int(rng, -5, 5) : int(rng, 0, 359);
   const trk = turn === 'std' ? norm(inbound + d) : norm(inbound - d);
   return {
     id, kind, display, flag, inbound, turn, trk,
-    nav: display === 'rmi' || display === 'numbers' ? pick(rng, ['NDB', 'VOR']) : 'VOR',
+    nav: display === 'rmi' || display === 'numbers' ? pick(rng, only(['NDB', 'VOR'], f.navs)) : 'VOR',
     hdg: trk,
   };
 }
@@ -69,6 +79,27 @@ function pickDisplay(rng, { display, instruments }) {
   if (display === 'numbers' || instruments.length === 0) return 'numbers';
   if (display === 'instruments') return pick(rng, instruments);
   return pick(rng, ['numbers', ...instruments]);
+}
+
+// Why the current settings cannot start a session ('' when they can).
+export function setupError(s) {
+  const f = filtersOf(s);
+  if (s.types.length === 0) return 'Pick at least one exercise.';
+  if (s.display !== 'numbers' && s.instruments.length === 0) return 'Pick at least one instrument, or switch to Numbers.';
+  if (s.types.includes('intercept')) {
+    if (!f.bands.length) return 'Pick at least one interception band.';
+    if (!f.dirs.length) return 'Pick inbound, outbound or both.';
+    if (!f.phrasings.length) return 'Pick at least one phrasing (radial or QDM / QDR).';
+    if (!f.dirs.some((d) => bandsFor(d, f.bands).length)) return 'Inbound interception has no over-station band.';
+  }
+  if (s.types.includes('hold')) {
+    if (!f.turns.length) return 'Pick STD, Non-STD or both.';
+    if (!f.navs.length) return 'Pick VOR, NDB or both.';
+    if (s.display === 'instruments' && !f.navs.includes('VOR') && !s.instruments.includes('rmi')) {
+      return 'NDB holdings require RMI or Numbers display.';
+    }
+  }
+  return '';
 }
 
 export function solve(s) {

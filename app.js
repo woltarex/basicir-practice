@@ -1,4 +1,4 @@
-import { mulberry32, makeScenario, buildQuestion, emphasisParts } from './generator.js';
+import { mulberry32, makeScenario, buildQuestion, emphasisParts, setupError } from './generator.js';
 import { renderInstrument, overlay } from './instruments/index.js';
 import { sectorDiagram } from './instruments/overlay.js';
 import { load, save, record } from './store.js';
@@ -61,13 +61,6 @@ form.addEventListener('change', (e) => {
   readSetup();
 });
 
-function setupError() {
-  const s = data.settings;
-  if (s.types.length === 0) return 'Pick at least one exercise.';
-  if (s.display !== 'numbers' && s.instruments.length === 0) return 'Pick at least one instrument, or switch to Numbers.';
-  return '';
-}
-
 function show(id) {
   for (const sec of ['setup', 'quiz', 'end']) $(sec).hidden = sec !== id;
   if (id !== 'quiz') document.querySelector('main').classList.remove('wide');
@@ -121,7 +114,7 @@ function optionButton(o, idx) {
 function start(review) {
   disarmEnd();
   readSetup();
-  const err = review ? '' : setupError();
+  const err = review ? '' : setupError(data.settings);
   $('setupError').hidden = !err;
   $('setupError').textContent = err;
   if (err) return;

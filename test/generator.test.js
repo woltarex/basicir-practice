@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mulberry32, makeScenario, buildQuestion, BANDS, emphasisParts } from '../generator.js';
-import { sdiff } from '../rules.js';
+import { mulberry32, makeScenario, buildQuestion, BANDS, emphasisParts, setupError } from '../generator.js';
+import { sdiff, interceptBand, holding } from '../rules.js';
+import { defaults } from '../store.js';
 
 const ALL = { types: ['intercept', 'hold'], display: 'mixed', instruments: ['rmi', 'hsi', 'dicdi'] };
 
@@ -105,4 +106,70 @@ test('emphasisParts bolds the leading phrase and every 3-digit track, and keeps 
       assert.equal(emphasisParts(opt.text).map((x) => x.text).join(''), opt.text);
     }
   }
+});
+
+const F = defaults().settings.filters;
+const subsets = (xs) => Array.from({ length: 2 ** xs.length - 1 }, (_, m) => xs.filter((_, i) => ((m + 1) >> i) & 1));
+
+test('omitted filters behave exactly like the defaults (v1 seeds unchanged)', () => {
+  for (let i = 0; i < 300; i++) {
+    assert.deepEqual(makeScenario(mulberry32(i), ALL, 'x'), makeScenario(mulberry32(i), { ...ALL, filters: F }, 'x'));
+  }
+});
+
+test('interception filters: every valid combination yields only matching scenarios', () => {
+  const rng = mulberry32(31);
+  let combos = 0;
+  for (const bands of subsets(F.bands)) for (const dirs of subsets(F.dirs)) for (const phrasings of subsets(F.phrasings)) {
+    const settings = { ...ALL, types: ['intercept'], filters: { ...F, bands, dirs, phrasings } };
+    if (setupError(settings)) continue;
+    combos++;
+    for (let i = 0; i < 300; i++) {
+      const s = makeScenario(rng, settings, String(i));
+      assert.ok(bands.includes(interceptBand(Math.abs(sdiff(s.radial, s.pos)))), `${bands} got Δ ${sdiff(s.radial, s.pos)}`);
+      assert.ok(dirs.includes(s.dir));
+      assert.ok(phrasings.includes(s.phrasing));
+    }
+  }
+  assert.equal(combos, 15 * 3 * 3 - 3); // only inbound-only + over-station-only is impossible (× 3 phrasings)
+});
+
+test('holding filters: turns and navaids respected; NDB holds stay on the RMI or numbers', () => {
+  const rng = mulberry32(32);
+  for (const turns of subsets(F.turns)) for (const navs of subsets(F.navs)) for (const boundaryFocus of [false, true]) {
+    const settings = { types: ['hold'], display: 'mixed', instruments: ['rmi', 'hsi', 'dicdi'], filters: { ...F, turns, navs, boundaryFocus } };
+    assert.equal(setupError(settings), '');
+    for (let i = 0; i < 2000; i++) {
+      const s = makeScenario(rng, settings, String(i));
+      assert.ok(turns.includes(s.turn));
+      assert.ok(navs.includes(s.nav), `${navs} got ${s.nav}`);
+      if (s.nav === 'NDB') assert.ok(s.display === 'rmi' || s.display === 'numbers', s.display);
+      assert.equal(s.hdg, s.trk);
+    }
+  }
+});
+
+test('boundaryFocus puts about 80% of holds in a ±5° either zone', () => {
+  const rng = mulberry32(33);
+  const settings = { types: ['hold'], display: 'numbers', instruments: [], filters: { ...F, boundaryFocus: true } };
+  let either = 0;
+  const n = 4000;
+  for (let i = 0; i < n; i++) if (holding(makeScenario(rng, settings, String(i))).either) either++;
+  assert.ok(either / n > 0.76 && either / n < 0.88, `either share ${either / n}`);
+});
+
+test('setupError covers empty and impossible filter choices', () => {
+  assert.equal(setupError(ALL), '');
+  assert.equal(setupError({ ...ALL, filters: { ...F, dirs: ['inbound'], bands: ['overstation'] } }), 'Inbound interception has no over-station band.');
+  assert.match(setupError({ ...ALL, filters: { ...F, bands: [] } }), /band/);
+  assert.match(setupError({ ...ALL, filters: { ...F, dirs: [] } }), /inbound/i);
+  assert.match(setupError({ ...ALL, filters: { ...F, phrasings: [] } }), /phrasing/);
+  assert.equal(setupError({ ...ALL, types: ['hold'], filters: { ...F, bands: [] } }), ''); // interception off → its filters ignored
+  assert.match(setupError({ ...ALL, types: ['hold'], filters: { ...F, turns: [] } }), /STD/);
+  assert.match(setupError({ ...ALL, types: ['hold'], filters: { ...F, navs: [] } }), /VOR/);
+  assert.equal(
+    setupError({ types: ['hold'], display: 'instruments', instruments: ['hsi', 'dicdi'], filters: { ...F, navs: ['NDB'] } }),
+    'NDB holdings require RMI or Numbers display.');
+  assert.equal(setupError({ types: ['hold'], display: 'instruments', instruments: ['rmi', 'hsi'], filters: { ...F, navs: ['NDB'] } }), '');
+  assert.equal(setupError({ ...ALL, types: [] }), 'Pick at least one exercise.');
 });
