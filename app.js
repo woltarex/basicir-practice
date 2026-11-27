@@ -69,12 +69,14 @@ function setupError() {
 
 function show(id) {
   for (const sec of ['setup', 'quiz', 'end']) $(sec).hidden = sec !== id;
-  document.querySelector('main').classList.toggle('wide', id === 'quiz');
+  if (id !== 'quiz') document.querySelector('main').classList.remove('wide');
 }
 
 // Two columns on wide screens whenever there is a drawing to show.
 function layout() {
-  $('qgrid').classList.toggle('two', $('instrument').innerHTML !== '');
+  const hasDrawing = $('instrument').innerHTML !== '';
+  $('qgrid').classList.toggle('two', hasDrawing);
+  document.querySelector('main').classList.toggle('wide', hasDrawing);
 }
 
 // Two-click guard: the first click arms `btn` for 3 s, the second runs `action`.
@@ -83,7 +85,8 @@ function twoClick(btn, confirmText, action, needsConfirm = () => true) {
   const label = btn.textContent;
   let timer = null;
   const disarm = () => { clearTimeout(timer); timer = null; btn.textContent = label; };
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', (e) => {
+    if (timer !== null && e.detail > 1) return; // a fast double-click must not arm and confirm in one gesture
     if (timer === null && needsConfirm()) {
       btn.textContent = confirmText;
       timer = setTimeout(disarm, 3000);
@@ -168,12 +171,14 @@ function tick() {
   const bar = $('timebar');
   bar.style.width = `${(left / total) * 100}%`;
   bar.style.background = left <= 5000 ? 'var(--bad)' : left <= total / 4 ? 'var(--warn)' : '';
-  requestAnimationFrame(tick);
+  cancelAnimationFrame(session.raf);
+  session.raf = requestAnimationFrame(tick);
 }
 
 // Pausing hides the question so the clock cannot be dodged; answer time excludes the pause.
 function setPaused(on) {
   if (!session || session.answered || session.deadline === null || session.paused === on) return;
+  cancelAnimationFrame(session.raf);
   const now = performance.now();
   if (on) {
     session.remainingMs = session.deadline - now;
@@ -293,6 +298,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (!session || $('quiz').hidden) return;
   if (e.target.matches('input, select, textarea')) return;
+  if (e.key === ' ' && !e.target.closest('button, summary')) e.preventDefault(); // no page scroll
   if (e.key === 'p' || e.key === 'P') { setPaused(!session.paused); return; }
   if (session.paused) return;
   if (!session.answered && /^[1-5]$/.test(e.key)) {
