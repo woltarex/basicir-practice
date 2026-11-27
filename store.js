@@ -79,7 +79,7 @@ export function load(storage) {
   return {
     version: 2,
     settings: validSettings(isObj(d.settings) ? d.settings : {}, def.settings),
-    stats: isObj(d.stats) ? d.stats : def.stats,
+    stats: isObj(d.stats) ? Object.fromEntries(Object.entries(d.stats).filter(([, v]) => isObj(v) && ['correct', 'total', 'ms'].every((k) => Number.isFinite(v[k])))) : def.stats,
     mistakes: Array.isArray(d.mistakes) ? d.mistakes.filter(validMistake) : def.mistakes,
     history: Array.isArray(d.history) ? d.history.filter(validEntry).slice(-HISTORY_MAX) : def.history,
   };

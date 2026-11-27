@@ -147,3 +147,12 @@ test('clearMistakes and resetStats', () => {
   assert.deepEqual(d.history, []);
   assert.equal(d.settings.timer, 90);
 });
+
+test('malformed stats entries are dropped', () => {
+  const st = memory();
+  st.setItem('basicir.v2', JSON.stringify({
+    version: 2,
+    stats: { '45': 5, '90/45': { correct: 'x', total: 1, ms: 1 }, holding: { correct: 1, total: 2, ms: 3 } },
+  }));
+  assert.deepEqual(load(st).stats, { holding: { correct: 1, total: 2, ms: 3 } });
+});
