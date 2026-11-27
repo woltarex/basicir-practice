@@ -118,3 +118,13 @@ export function resetStats(data) {
   data.history = [];
   return data;
 }
+
+// Mean accuracy (0..1) and answer time over past sessions, weighted by questions; null if none.
+export function historyAverage(history) {
+  const total = history.reduce((a, h) => a + h.total, 0);
+  if (!total) return null;
+  return {
+    acc: history.reduce((a, h) => a + h.right, 0) / total,
+    avgMs: history.reduce((a, h) => a + h.avgMs * h.total, 0) / total,
+  };
+}

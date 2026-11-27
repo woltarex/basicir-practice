@@ -83,6 +83,17 @@
         </select>
       </span>
     </div>
+    <div id="summary" hidden>
+      <p id="summaryLine"></p>
+      <details>
+        <summary>Stats &amp; history</summary>
+        <table id="setupAlltime"></table>
+        <h3 style="font-size:1rem">Recent sessions</h3>
+        <table id="historyTable"></table>
+        <button id="clearMistakes" class="secondary">Clear mistakes</button>
+        <button id="resetStats" class="secondary">Reset stats &amp; history</button>
+      </details>
+    </div>
     <fieldset><legend>Exercise</legend>
       <label><input type="checkbox" name="types" value="intercept"> Interception</label>
       <label><input type="checkbox" name="types" value="hold"> Holding</label>
@@ -171,6 +182,7 @@
   <section id="end" hidden>
     <h1>Session done</h1>
     <p id="score"></p>
+    <p id="delta" class="muted" hidden></p>
     <table id="breakdown"></table>
     <p id="topMistake" class="muted"></p>
     <h2 style="font-size:1rem">All time</h2>

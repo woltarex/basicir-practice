@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mulberry32, makeScenario, buildQuestion, BANDS, emphasisParts, setupError, statWeight, pickWeighted, eligibleKeys } from '../generator.js';
+import { mulberry32, makeScenario, buildQuestion, BANDS, emphasisParts, setupError, statWeight, pickWeighted, eligibleKeys, summarize } from '../generator.js';
 import { sdiff, interceptBand, holding } from '../rules.js';
 import { defaults } from '../store.js';
 
@@ -219,4 +219,14 @@ test('adaptive makeScenario drills the weakest key and respects filters', () => 
     const s = makeScenario(rng, only45, String(i), stats);
     if (s.kind === 'intercept') assert.equal(interceptBand(Math.abs(sdiff(s.radial, s.pos))), '45');
   }
+});
+
+test('summarize totals all stats and names the weakest seen key', () => {
+  assert.deepEqual(summarize({}), { correct: 0, total: 0, ms: 0, weakest: null });
+  const s = summarize({
+    '45': { correct: 9, total: 10, ms: 50000 },
+    holding: { correct: 2, total: 10, ms: 50000 },
+    correction: { correct: 0, total: 0, ms: 0 },
+  });
+  assert.deepEqual(s, { correct: 11, total: 20, ms: 100000, weakest: 'holding' });
 });

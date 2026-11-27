@@ -124,6 +124,15 @@ export function statWeight(st) {
   return 0.5 + errorTerm + speedTerm;
 }
 
+// All-time totals; weakest = the answered key the adaptive drill would weight most.
+export function summarize(stats) {
+  const seen = Object.entries(stats).filter(([, v]) => v && v.total > 0);
+  const t = { correct: 0, total: 0, ms: 0 };
+  for (const [, v] of seen) { t.correct += v.correct; t.total += v.total; t.ms += v.ms; }
+  const weakest = seen.length ? seen.reduce((a, b) => (statWeight(b[1]) > statWeight(a[1]) ? b : a))[0] : null;
+  return { ...t, weakest };
+}
+
 export function pickWeighted(rng, keys, stats) {
   const w = keys.map((k) => statWeight(stats[k]));
   let x = rng() * w.reduce((a, b) => a + b, 0);

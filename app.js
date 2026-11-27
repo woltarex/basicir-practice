@@ -1,7 +1,7 @@
-import { mulberry32, makeScenario, buildQuestion, emphasisParts, setupError } from './generator.js';
+import { mulberry32, makeScenario, buildQuestion, emphasisParts, setupError, summarize } from './generator.js';
 import { renderInstrument, overlay } from './instruments/index.js';
 import { sectorDiagram } from './instruments/overlay.js';
-import { load, save, record } from './store.js';
+import { load, save, record, recordSession, clearMistakes, resetStats, historyAverage } from './store.js';
 
 const $ = (id) => document.getElementById(id);
 const form = $('setup');
@@ -41,6 +41,7 @@ function fillSetup() {
   form.querySelector('[name=theme]').value = s.theme;
   applyTheme();
   syncSetup();
+  renderSummary();
 }
 
 function readSetup() {
@@ -288,12 +289,41 @@ function fillTable(table, rows) {
   }));
 }
 
+function alltimeRows() {
+  return Object.entries(data.stats)
+    .filter(([, v]) => v && Number(v.total) > 0)
+    .map(([k, v]) => [LABEL[k] ?? k, `${Math.round((100 * v.correct) / v.total)}% of ${v.total} · ${(v.ms / v.total / 1000).toFixed(1)} s`]);
+}
+
+function renderSummary() {
+  const sum = summarize(data.stats);
+  $('summary').hidden = sum.total === 0;
+  if (!sum.total) return;
+  $('summaryLine').textContent = `Overall ${Math.round((100 * sum.correct) / sum.total)}% (${sum.correct} / ${sum.total}) · ` +
+    `average ${(sum.ms / sum.total / 1000).toFixed(1)} s · weakest: ${LABEL[sum.weakest] ?? sum.weakest}`;
+  fillTable($('setupAlltime'), alltimeRows());
+  fillTable($('historyTable'), data.history.slice(-10).reverse().map((h) => [
+    new Date(h.at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) + (h.review ? ' (review)' : ''),
+    `${h.right} / ${h.total}`,
+    `${(h.avgMs / 1000).toFixed(1)} s`,
+  ]));
+}
+
 function endSession() {
-  const log = session.log;
+  const { log, review } = session;
   session = null;
   const right = log.filter((l) => l.correct).length;
-  const avg = log.length ? log.reduce((a, l) => a + l.ms, 0) / log.length / 1000 : 0;
-  $('score').textContent = `Score ${right} / ${log.length} · average ${avg.toFixed(1)} s`;
+  const avgMs = log.length ? log.reduce((a, l) => a + l.ms, 0) / log.length : 0;
+  const prev = historyAverage(data.history);
+  recordSession(data, { at: Date.now(), right, total: log.length, avgMs: Math.round(avgMs), review });
+  save(data);
+  $('score').textContent = `Score ${right} / ${log.length} · average ${(avgMs / 1000).toFixed(1)} s`;
+  $('delta').hidden = !prev;
+  if (prev) {
+    const dAcc = Math.round(100 * (right / log.length - prev.acc));
+    const dSec = (avgMs - prev.avgMs) / 1000;
+    $('delta').textContent = `vs your average: accuracy ${dAcc >= 0 ? '+' : '−'}${Math.abs(dAcc)} points · time ${dSec >= 0 ? '+' : '−'}${Math.abs(dSec).toFixed(1)} s`;
+  }
 
   const per = {};
   for (const l of log) {
@@ -308,9 +338,7 @@ function endSession() {
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
   $('topMistake').textContent = top ? `Most common mistake: ${top[0]} (×${top[1]})` : 'No mistakes 🎉';
 
-  fillTable($('alltime'), Object.entries(data.stats)
-    .filter(([, v]) => v && Number(v.total) > 0)
-    .map(([k, v]) => [LABEL[k] ?? k, `${Math.round((100 * v.correct) / v.total)}% of ${v.total} · ${(v.ms / v.total / 1000).toFixed(1)} s`]));
+  fillTable($('alltime'), alltimeRows());
   show('end');
 }
 
@@ -322,6 +350,8 @@ $('next').addEventListener('click', nextQuestion);
 const disarmEnd = twoClick($('finish'), 'Confirm end?',
   () => (session.log.length ? endSession() : (session = null, fillSetup(), show('setup'))),
   () => session.log.length > 0);
+twoClick($('clearMistakes'), 'Click again to confirm', () => { clearMistakes(data); save(data); fillSetup(); });
+twoClick($('resetStats'), 'Click again to confirm', () => { resetStats(data); save(data); fillSetup(); });
 $('pause').addEventListener('click', () => setPaused(!session.paused));
 $('resume').addEventListener('click', () => setPaused(false));
 $('again').addEventListener('click', () => { fillSetup(); show('setup'); });

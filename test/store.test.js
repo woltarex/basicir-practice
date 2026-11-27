@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { load, save, record, defaults, recordSession, clearMistakes, resetStats } from '../store.js';
+import { load, save, record, defaults, recordSession, clearMistakes, resetStats, historyAverage } from '../store.js';
 
 const memory = () => {
   const m = new Map();
@@ -155,4 +155,11 @@ test('malformed stats entries are dropped', () => {
     stats: { '45': 5, '90/45': { correct: 'x', total: 1, ms: 1 }, holding: { correct: 1, total: 2, ms: 3 } },
   }));
   assert.deepEqual(load(st).stats, { holding: { correct: 1, total: 2, ms: 3 } });
+});
+
+test('historyAverage weights sessions by questions answered', () => {
+  assert.equal(historyAverage([]), null);
+  const a = historyAverage([{ right: 1, total: 2, avgMs: 1000 }, { right: 8, total: 8, avgMs: 2000 }]);
+  assert.equal(a.acc, 0.9);
+  assert.equal(a.avgMs, 1800);
 });
