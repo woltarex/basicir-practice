@@ -27,6 +27,7 @@ function readSetup() {
   const checked = (name) => [...form.querySelectorAll(`[name=${name}]:checked`)].map((el) => el.value);
   const timer = Math.max(0, Math.min(600, Number(form.querySelector('[name=timer]').value) || 0));
   data.settings = {
+    ...data.settings,
     types: checked('types'),
     instruments: checked('instruments'),
     display: checked('display')[0] ?? 'numbers',

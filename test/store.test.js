@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { load, save, record, defaults } from '../store.js';
+import { load, save, record, defaults, recordSession, clearMistakes, resetStats } from '../store.js';
 
 const memory = () => {
   const m = new Map();
@@ -65,4 +65,85 @@ test('malformed mistakes entries are dropped', () => {
   const st = memory();
   st.setItem('basicir.v1', JSON.stringify({ version: 1, mistakes: [null, 5, { kind: 'hold', id: 'a' }] }));
   assert.deepEqual(load(st).mistakes, [{ kind: 'hold', id: 'a' }]);
+});
+
+test('v1 data migrates to v2 keeping settings, stats and mistakes', () => {
+  const st = memory();
+  st.setItem('basicir.v1', JSON.stringify({
+    version: 1,
+    settings: { types: ['hold'], display: 'mixed', instruments: ['rmi', 'hsi'], timer: 90, length: 10 },
+    stats: { '45': { correct: 1, total: 2, ms: 3000 } },
+    mistakes: [{ kind: 'hold', id: 'a' }],
+  }));
+  const d = load(st);
+  assert.equal(d.version, 2);
+  assert.deepEqual(d.settings.types, ['hold']);
+  assert.equal(d.settings.display, 'mixed');
+  assert.equal(d.settings.timer, 90);
+  assert.equal(d.settings.theme, 'system');
+  assert.equal(d.settings.answerMode, 'mc');
+  assert.equal(d.settings.cdiMode, 'centered');
+  assert.equal(d.settings.adaptive, false);
+  assert.deepEqual(d.settings.filters, defaults().settings.filters);
+  assert.deepEqual(d.stats, { '45': { correct: 1, total: 2, ms: 3000 } });
+  assert.deepEqual(d.mistakes, [{ kind: 'hold', id: 'a' }]);
+  assert.deepEqual(d.history, []);
+  save(d, st);
+  assert.equal(JSON.parse(st.getItem('basicir.v2')).version, 2);
+});
+
+test('v2 wins over v1; corrupt v2 falls back to v1', () => {
+  const st = memory();
+  st.setItem('basicir.v1', JSON.stringify({ version: 1, settings: { timer: 90 } }));
+  st.setItem('basicir.v2', JSON.stringify({ version: 2, settings: { timer: 20 } }));
+  assert.equal(load(st).settings.timer, 20);
+  st.setItem('basicir.v2', '{not json');
+  assert.equal(load(st).settings.timer, 90);
+});
+
+test('invalid v2 fields fall back one by one without wiping stats', () => {
+  const st = memory();
+  st.setItem('basicir.v2', JSON.stringify({
+    version: 2,
+    settings: {
+      theme: 'neon', answerMode: 'x', cdiMode: 5, adaptive: 'yes',
+      filters: { bands: ['45', 'bogus'], dirs: null, boundaryFocus: 1 },
+    },
+    stats: { '45': { correct: 1, total: 1, ms: 10 } },
+    history: [{ at: 1, right: 1, total: 2, avgMs: 500, review: false }, null, { at: 'x' }],
+  }));
+  const d = load(st);
+  const def = defaults().settings;
+  assert.equal(d.settings.theme, 'system');
+  assert.equal(d.settings.answerMode, 'mc');
+  assert.equal(d.settings.cdiMode, 'centered');
+  assert.equal(d.settings.adaptive, false);
+  assert.deepEqual(d.settings.filters.bands, ['45']);
+  assert.deepEqual(d.settings.filters.dirs, def.filters.dirs);
+  assert.equal(d.settings.filters.boundaryFocus, false);
+  assert.deepEqual(d.stats, { '45': { correct: 1, total: 1, ms: 10 } });
+  assert.equal(d.history.length, 1);
+});
+
+test('recordSession keeps the last 30 sessions', () => {
+  const d = defaults();
+  for (let i = 0; i < 35; i++) recordSession(d, { at: i, right: 1, total: 1, avgMs: 1, review: false });
+  assert.equal(d.history.length, 30);
+  assert.equal(d.history[0].at, 5);
+  assert.equal(d.history.at(-1).at, 34);
+});
+
+test('clearMistakes and resetStats', () => {
+  const d = defaults();
+  d.mistakes.push({ kind: 'hold', id: 'a' });
+  d.stats['45'] = { correct: 1, total: 1, ms: 1 };
+  d.history.push({ at: 1, right: 1, total: 1, avgMs: 1 });
+  d.settings.timer = 90;
+  clearMistakes(d);
+  assert.deepEqual(d.mistakes, []);
+  assert.equal(d.stats['45'].total, 1);
+  resetStats(d);
+  assert.deepEqual(d.stats, {});
+  assert.deepEqual(d.history, []);
+  assert.equal(d.settings.timer, 90);
 });
