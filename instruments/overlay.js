@@ -131,7 +131,7 @@ export function overlay(s, r, up) {
 export function sectorDiagram(turn) {
   const s = { inbound: 0, turn };
   const name = turn === 'std' ? 'STD' : 'NON-STD';
-  return svg(bezel(name) + card('card', 0) +
-    `<g id="overlay" transform="rotate(0 100 100)">${sectorParts(s, 0, 0.3).join('')}${racetrack(s)}</g>`,
+  return svg(bezel(name) + card('refcard', 0) +
+    `<g>${sectorParts(s, 0, 0.3).join('')}${racetrack(s)}</g>`,
   `${name} holding entry sectors`);
 }

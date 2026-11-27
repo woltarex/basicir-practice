@@ -124,6 +124,11 @@ const sectorBearings = (svg) => Object.fromEntries(tags(svg, 'sector').map((t) =
 test('holding overlay shades and labels the four sectors, upright on a rotated card', () => {
   const s = hd({ inbound: 0, turn: 'std', trk: 150, hdg: 150 });
   const { svg } = overlay(s, solve(s), 40);
+  for (const up of [-30, 725]) {
+    for (const l of tags(overlay(s, solve(s), up).svg, 'sector')) {
+      assert.equal(attr(l, 'transform'), `rotate(${norm(up)} ${attr(l, 'x')} ${attr(l, 'y')})`);
+    }
+  }
   // Label d = 25 (DIR, clear of the racetrack), 90, 145, 235, seen from where the aircraft comes from (I + d + 180).
   assert.deepEqual(sectorBearings(svg), { DIR: 205, SPEC: 270, TD: 325, PAR: 55 });
   for (const t of tags(svg, 'sector')) {
@@ -148,5 +153,30 @@ test('sectorDiagram draws a labelled north-up sector chart for each turn directi
     assert.match(svg, /^<svg/);
     assert.equal(tags(svg, 'sector').length, 4);
     assert.match(svg, new RegExp(`data-role="racetrack"[^>]*data-turn="${turn}"`));
+  }
+});
+
+test('wedge arcs run from boundary to boundary in the right direction', () => {
+  const bearingOf = (x, y) => norm(Math.round((Math.atan2(x - 100, 100 - y) * 180) / Math.PI));
+  const ranges = { DIR: [290, 430], SPEC: [70, 110], TD: [110, 180], PAR: [180, 290] };
+  for (const turn of ['std', 'nonstd']) {
+    const s = hd({ inbound: 0, turn, trk: 150, hdg: 150 });
+    const from = (d) => norm(turn === 'std' ? d + 180 : -d + 180);
+    for (const w of tags(overlay(s, solve(s), 0).svg, 'wedge')) {
+      const m = attr(w, 'd').match(/^M100 100 L([\d.]+) ([\d.]+) A86 86 0 (\d) (\d) ([\d.]+) ([\d.]+) Z$/);
+      assert.ok(m, attr(w, 'd'));
+      const [lo, hi] = ranges[attr(w, 'data-label')];
+      assert.equal(bearingOf(m[1], m[2]), from(lo));
+      assert.equal(bearingOf(m[5], m[6]), from(hi));
+      assert.equal(m[3], '0');
+      assert.equal(m[4], turn === 'std' ? '1' : '0');
+    }
+  }
+});
+
+test('sectorDiagram does not reuse the live instrument ids', () => {
+  for (const turn of ['std', 'nonstd']) {
+    const svg = sectorDiagram(turn);
+    assert.ok(!svg.includes('id="card"') && !svg.includes('id="overlay"'));
   }
 });
