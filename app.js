@@ -33,6 +33,10 @@ function fillSetup() {
   form.querySelector('[name=timer]').value = s.timer;
   $('review').textContent = `Review mistakes (${data.mistakes.length})`;
   $('review').disabled = data.mistakes.length === 0;
+  for (const k of ['bands', 'dirs', 'phrasings', 'turns', 'navs']) {
+    form.querySelectorAll(`[name=${k}]`).forEach((el) => (el.checked = s.filters[k].includes(el.value)));
+  }
+  form.querySelector('[name=boundaryFocus]').checked = s.filters.boundaryFocus;
   form.querySelector('[name=theme]').value = s.theme;
   applyTheme();
   syncSetup();
@@ -49,6 +53,14 @@ function readSetup() {
     length: Number(checked('length')[0] ?? 20),
     timer,
     theme: form.querySelector('[name=theme]').value,
+    filters: {
+      bands: checked('bands'),
+      dirs: checked('dirs'),
+      phrasings: checked('phrasings'),
+      turns: checked('turns'),
+      navs: checked('navs'),
+      boundaryFocus: form.querySelector('[name=boundaryFocus]').checked,
+    },
   };
   save(data);
   applyTheme();

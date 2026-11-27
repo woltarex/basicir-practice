@@ -109,6 +109,32 @@
       <label><input type="radio" name="length" value="20"> 20</label>
       <label><input type="radio" name="length" value="0"> Endless</label>
     </fieldset>
+    <details id="advancedFilters">
+      <summary>Advanced filters</summary>
+      <fieldset><legend>Interception bands</legend>
+        <label><input type="checkbox" name="bands" value="correction"> Correction</label>
+        <label><input type="checkbox" name="bands" value="45"> 45°</label>
+        <label><input type="checkbox" name="bands" value="90/45"> 90°/45°</label>
+        <label><input type="checkbox" name="bands" value="overstation"> Over-station</label>
+      </fieldset>
+      <fieldset><legend>Interception direction</legend>
+        <label><input type="checkbox" name="dirs" value="inbound"> Inbound</label>
+        <label><input type="checkbox" name="dirs" value="outbound"> Outbound</label>
+      </fieldset>
+      <fieldset><legend>Interception phrasing</legend>
+        <label><input type="checkbox" name="phrasings" value="radial"> Radial</label>
+        <label><input type="checkbox" name="phrasings" value="q"> QDM / QDR</label>
+      </fieldset>
+      <fieldset><legend>Holding turns</legend>
+        <label><input type="checkbox" name="turns" value="std"> STD (right)</label>
+        <label><input type="checkbox" name="turns" value="nonstd"> Non-STD (left)</label>
+      </fieldset>
+      <fieldset><legend>Holding navaid</legend>
+        <label><input type="checkbox" name="navs" value="VOR"> VOR</label>
+        <label><input type="checkbox" name="navs" value="NDB"> NDB</label>
+        <label><input type="checkbox" name="boundaryFocus"> Focus on ±5° boundary zones (80%)</label>
+      </fieldset>
+    </details>
     <button id="start">Start</button>
     <button id="review" class="secondary">Review mistakes (0)</button>
     <p id="setupError" class="muted" hidden></p>
