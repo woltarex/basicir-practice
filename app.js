@@ -165,7 +165,9 @@ function nextQuestion() {
 
 function drawSolution() {
   const q = session.q, v = session.view;
-  $('instrument').innerHTML = renderInstrument(q.scenario, v.overlay ? q.result : null, { northUp: v.northUp });
+  const numbers = q.scenario.display === 'numbers'; // the rose is the only drawing there: overlay/frame choices do not apply
+  $('instrument').innerHTML = renderInstrument(q.scenario, v.overlay || numbers ? q.result : null, { northUp: v.northUp });
+  $('legend').hidden = !v.overlay && !numbers;
   layout();
 }
 
