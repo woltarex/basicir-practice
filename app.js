@@ -195,7 +195,7 @@ function setPaused(on) {
 }
 
 function answer(idx) {
-  if (session.answered) return;
+  if (session.answered || session.paused) return;
   session.answered = true;
   $('pause').disabled = true;
   const q = session.q;
@@ -299,7 +299,7 @@ document.addEventListener('keydown', (e) => {
   if (!session || $('quiz').hidden) return;
   if (e.target.matches('input, select, textarea')) return;
   if (e.key === ' ' && !e.target.closest('button, summary')) e.preventDefault(); // no page scroll
-  if (e.key === 'p' || e.key === 'P') { setPaused(!session.paused); return; }
+  if ((e.key === 'p' || e.key === 'P') && !(e.ctrlKey || e.metaKey || e.altKey)) { setPaused(!session.paused); return; }
   if (session.paused) return;
   if (!session.answered && /^[1-5]$/.test(e.key)) {
     const idx = Number(e.key) - 1;
