@@ -230,3 +230,28 @@ test('summarize totals all stats and names the weakest seen key', () => {
   });
   assert.deepEqual(s, { correct: 11, total: 20, ms: 100000, weakest: 'holding' });
 });
+
+test('v1 golden scenarios: default settings still draw exactly what v1 drew', () => {
+  // Generated once from the v1 generator (commit eccbda5); never regenerate from current code.
+  const mixed = [
+    { id: 'g0', kind: 'intercept', display: 'rmi', flag: 'TO', radial: 351, dir: 'inbound', pos: 18, phrasing: 'q', dist: 6.1, hdg: 56, gs: 90 },
+    { id: 'g1', kind: 'hold', display: 'hsi', flag: 'FROM', inbound: 244, turn: 'nonstd', trk: 323, nav: 'VOR', hdg: 323 },
+    { id: 'g2', kind: 'hold', display: 'hsi', flag: 'FROM', inbound: 100, turn: 'nonstd', trk: 77, nav: 'VOR', hdg: 77 },
+    { id: 'g3', kind: 'intercept', display: 'dicdi', flag: 'FROM', radial: 288, dir: 'outbound', pos: 335, phrasing: 'q', dist: 3.6, hdg: 181, gs: 110 },
+    { id: 'g4', kind: 'intercept', display: 'rmi', flag: 'TO', radial: 356, dir: 'outbound', pos: 332, phrasing: 'q', dist: 8.7, hdg: 345, gs: 90 },
+  ];
+  const holds = [
+    { id: 'g0', kind: 'hold', display: 'numbers', flag: 'FROM', inbound: 305, turn: 'std', trk: 255, nav: 'NDB', hdg: 255 },
+    { id: 'g1', kind: 'hold', display: 'numbers', flag: 'FROM', inbound: 47, turn: 'nonstd', trk: 224, nav: 'VOR', hdg: 224 },
+    { id: 'g2', kind: 'hold', display: 'numbers', flag: 'TO', inbound: 261, turn: 'std', trk: 149, nav: 'VOR', hdg: 149 },
+    { id: 'g3', kind: 'hold', display: 'numbers', flag: 'TO', inbound: 181, turn: 'std', trk: 290, nav: 'VOR', hdg: 290 },
+    { id: 'g4', kind: 'hold', display: 'numbers', flag: 'TO', inbound: 261, turn: 'std', trk: 132, nav: 'NDB', hdg: 132 },
+  ];
+  for (const [seed, set, want] of [
+    [1001, { types: ['intercept', 'hold'], display: 'mixed', instruments: ['rmi', 'hsi', 'dicdi'] }, mixed],
+    [2002, { types: ['hold'], display: 'numbers', instruments: [] }, holds],
+  ]) {
+    const rng = mulberry32(seed);
+    assert.deepEqual(want.map((_, i) => makeScenario(rng, set, 'g' + i)), want);
+  }
+});
