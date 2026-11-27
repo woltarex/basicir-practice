@@ -65,6 +65,7 @@
   }
   .obsbar { width: 100%; justify-content: center; margin: 4px 0; font-variant-numeric: tabular-nums; }
   .free { margin-top: 12px; } .seg { flex-wrap: wrap; margin: 0 0 8px; } .seg button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .seg button[aria-pressed="true"] kbd { color: inherit; border-color: currentColor; }
   .qgrid.paused #instrument, .qgrid.paused #prompt, .qgrid.paused #options, .qgrid.paused #freeInput, .qgrid.paused #obsBar { visibility: hidden; }
   dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: var(--card); color: var(--fg); width: min(720px, calc(100vw - 32px)); }
   dialog::backdrop { background: rgb(0 0 0 / .5); }
@@ -178,7 +179,7 @@
         <div id="obsBar" class="tools obsbar" hidden>
           <button class="mini secondary" data-d="-10">−10°</button>
           <button class="mini secondary" data-d="-1">−1°</button>
-          <b id="obsValue"></b>
+          <b id="obsValue" aria-live="polite"></b>
           <button class="mini secondary" data-d="1">+1°</button>
           <button class="mini secondary" data-d="10">+10°</button>
         </div>
@@ -195,7 +196,7 @@
             <input id="fiInitial" inputmode="numeric" pattern="[0-9]*" maxlength="3" size="4"></label>
           <label id="fiInterceptRow"><span id="fiInterceptLabel">Interception track</span>
             <input id="fiIntercept" inputmode="numeric" pattern="[0-9]*" maxlength="3" size="4"></label>
-          <p id="fiHint" class="muted" hidden>Pick a type first.</p>
+          <p id="fiHint" class="muted" aria-live="polite" hidden>Pick a type first.</p>
           <button type="submit" id="fiSubmit">Check answer</button>
         </form>
         <div id="feedback" hidden>

@@ -133,6 +133,7 @@ function optionButton(o, idx) {
 // ---------- session ----------
 
 function start(review) {
+  document.activeElement?.blur(); // a hidden radio left focused by Enter-to-start would swallow the first 1-5 key
   disarmEnd();
   readSetup();
   const err = review ? '' : setupError(data.settings);
@@ -208,11 +209,12 @@ function drawSolution() {
   const numbers = q.scenario.display === 'numbers'; // the rose is the only drawing there: overlay/frame choices do not apply
   $('instrument').innerHTML = renderInstrument(liveScenario(), v.overlay || numbers ? q.result : null, { northUp: v.northUp });
   $('legend').hidden = !v.overlay && !numbers;
+  $('obsBar').hidden = session.liveObs == null || (session.answered && v.northUp && v.overlay); // north-up frame: OBS no longer changes the drawing
   layout();
 }
 
 // Overlay On/Off and Instrument/North-up pills under the instrument (instrument questions only).
-function renderToggles(focusIndex = -1) {
+function renderToggles() {
   const box = $('viewToggles');
   const v = session.view;
   if (session.q.scenario.display === 'numbers') return box.replaceChildren();
@@ -226,10 +228,9 @@ function renderToggles(focusIndex = -1) {
     return b;
   };
   box.replaceChildren(
-    pill(`Overlay: ${v.overlay ? 'On' : 'Off'}`, v.overlay, false, () => { v.overlay = !v.overlay; drawSolution(); renderToggles(0); }),
-    pill(`Frame: ${v.northUp ? 'North-up' : 'Instrument'}`, v.northUp, !v.overlay, () => { v.northUp = !v.northUp; drawSolution(); renderToggles(1); }),
+    pill(`Overlay: ${v.overlay ? 'On' : 'Off'}`, v.overlay, false, () => { v.overlay = !v.overlay; drawSolution(); renderToggles(); $('next').focus(); }),
+    pill(`Frame: ${v.northUp ? 'North-up' : 'Instrument'}`, v.northUp, !v.overlay, () => { v.northUp = !v.northUp; drawSolution(); renderToggles(); $('next').focus(); }),
   );
-  box.children[focusIndex]?.focus();
 }
 
 function tick() {
@@ -261,7 +262,7 @@ function setPaused(on) {
   $('qgrid').classList.toggle('paused', on);
   $('resume').hidden = !on;
   $('pause').textContent = on ? 'Resume' : 'Pause';
-  if (!on) tick();
+  if (!on) { tick(); refocusFree(); }
 }
 
 const CHOICES = {
@@ -301,6 +302,14 @@ function syncFree() {
     ? (choice === 'overstation' ? 'Track to station' : 'Initial track')
     : (choice === 'special' ? 'Outbound track after 15 s' : 'Initial track');
   $('fiInterceptLabel').textContent = two ? 'Interception track' : 'Track (initial = interception)';
+}
+
+// Chrome blurs a hidden field on pause and the Rules dialog returns focus to its button: put it back
+// so the next digit is typed into the field, not read as an answer-type key.
+function refocusFree() {
+  if (session?.mode !== 'input' || session.answered || session.paused || $('quiz').hidden) return;
+  const field = session.free.choice && [$('fiInitial'), $('fiIntercept')].find((el) => !el.closest('label').hidden);
+  (field ?? $('fiChoices').querySelector('[aria-pressed=true]') ?? $('fiChoices').querySelector('button'))?.focus();
 }
 
 function pickChoice(value) {
@@ -451,7 +460,7 @@ function endSession() {
   fillTable($('breakdown'), Object.entries(per).map(([k, v]) => [LABEL[k] ?? k, `${v.correct} / ${v.total}`]));
 
   const counts = {};
-  for (const l of log) if (!l.correct) counts[l.mistake] = (counts[l.mistake] ?? 0) + 1;
+  for (const l of log) if (!l.correct) { const m = l.mistake.replace(/\d+°/, 'N°'); counts[m] = (counts[m] ?? 0) + 1; }
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
   $('topMistake').textContent = top ? `Most common mistake: ${top[0]} (×${top[1]})` : 'No mistakes 🎉';
 
@@ -496,7 +505,7 @@ let downOnBackdrop = false; // a drag that starts inside the sheet and ends on t
 $('refDialog').addEventListener('mousedown', (e) => { downOnBackdrop = e.target === $('refDialog'); });
 $('refDialog').addEventListener('click', (e) => { if (e.target === $('refDialog') && downOnBackdrop) $('refDialog').close(); });
 // Focus returns to the Rules button on close; on an answered question hand it to Next so Enter advances.
-$('refDialog').addEventListener('close', () => { if (session?.answered && !$('quiz').hidden) $('next').focus(); });
+$('refDialog').addEventListener('close', () => { if (session?.answered && !$('quiz').hidden) $('next').focus(); else refocusFree(); });
 
 document.addEventListener('keydown', (e) => {
   if ($('refDialog').open) return;
@@ -515,7 +524,7 @@ document.addEventListener('keydown', (e) => {
     if (!hot) return;
   }
   if (e.key === ' ' && !e.target.closest('button, summary')) e.preventDefault(); // no page scroll
-  if ((e.key === 'p' || e.key === 'P') && !(e.ctrlKey || e.metaKey || e.altKey)) { setPaused(!session.paused); return; }
+  if ((e.key === 'p' || e.key === 'P') && !(e.ctrlKey || e.metaKey || e.altKey)) { e.preventDefault(); setPaused(!session.paused); return; } // preventDefault: a refocus on resume must not also type the p
   if (session.paused) return;
   if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
     e.preventDefault();
