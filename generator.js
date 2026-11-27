@@ -1,7 +1,7 @@
 // Scenarios, questions and distractors. Pure: all randomness comes from `rng`.
 import {
   norm, sdiff, fmt, interception, interceptText, holding, holdText,
-  ENTRIES, EITHER_PAIRS, entryInitial,
+  ENTRIES, EITHER_PAIRS, entryInitial, cdiReading,
 } from './rules.js';
 import { defaults } from './store.js';
 
@@ -58,24 +58,36 @@ export function makeScenario(rng, settings, id, stats = null) {
     const [lo, hi] = BANDS[band];
     const radial = int(rng, 0, 359);
     const pos = norm(radial + (rng() < 0.5 ? -1 : 1) * int(rng, lo, hi));
-    return {
+    return withObs(rng, settings, {
       id, kind, display, flag, radial, dir, pos,
       phrasing: pick(rng, only(['radial', 'q'], f.phrasings)),
       dist: int(rng, 30, 120) / 10,
       hdg: int(rng, 0, 359),
       gs: pick(rng, [90, 100, 110, 120, 140]),
-    };
+    });
   }
   const inbound = int(rng, 0, 359);
   const turn = pick(rng, only(['std', 'nonstd'], f.turns));
   // ~20% (or ~80% with boundaryFocus) land in a ±5° either zone.
   const d = rng() < (f.boundaryFocus ? 0.8 : 0.2) ? pick(rng, [110, 180, 290]) + int(rng, -5, 5) : int(rng, 0, 359);
   const trk = turn === 'std' ? norm(inbound + d) : norm(inbound - d);
-  return {
+  return withObs(rng, settings, {
     id, kind, display, flag, inbound, turn, trk,
     nav: display === 'rmi' || display === 'numbers' ? pick(rng, only(['NDB', 'VOR'], f.navs)) : 'VOR',
     hdg: trk,
-  };
+  });
+}
+
+// cdiMode on HSI / DI+CDI: 'deflected' sets the OBS 1–4 whole dots (2° each) off your radial (FROM)
+// or QDM (TO), keeping the flag; 'interactive' starts from a random OBS the user turns to centre.
+function withObs(rng, settings, s) {
+  const mode = settings.cdiMode ?? 'centered';
+  if (mode === 'centered' || (s.display !== 'hsi' && s.display !== 'dicdi')) return s;
+  const { P, qdm } = instrumentState(s);
+  s.obs = mode === 'interactive'
+    ? int(rng, 0, 359)
+    : norm((s.flag === 'FROM' ? P : qdm) + (rng() < 0.5 ? -1 : 1) * pick(rng, [2, 4, 6, 8]));
+  return s;
 }
 
 function pickDisplay(rng, { display, instruments }) {
@@ -261,23 +273,39 @@ export function buildQuestion(s, rng) {
 }
 
 // What the instruments show for a scenario. P = your radial.
+// Without s.obs the CDI is centred on the scenario's flag (v1); with s.obs it reads cdiReading.
 export function instrumentState(s) {
   const P = s.kind === 'intercept' ? s.pos : norm(s.trk + 180);
   const qdm = norm(P + 180);
-  return { P, hdg: s.hdg, qdm, obs: s.flag === 'FROM' ? P : qdm, flag: s.flag, nav: s.kind === 'hold' ? s.nav : 'VOR' };
+  const centred = s.obs == null;
+  const obs = centred ? (s.flag === 'FROM' ? P : qdm) : norm(s.obs);
+  const { flag, deflection } = centred ? { flag: s.flag, deflection: 0 } : cdiReading(obs, P);
+  return { P, hdg: s.hdg, qdm, obs, flag, deflection, nav: s.kind === 'hold' ? s.nav : 'VOR' };
 }
 
 // First worked step in instrument modes: what the instrument says.
 export function readingSteps(s) {
   if (s.display === 'numbers') return [];
-  const { P, qdm, obs } = instrumentState(s);
+  const { P, qdm, obs, flag, deflection } = instrumentState(s);
   if (s.display === 'rmi') {
     return [`RMI: heading ${fmt(s.hdg)}°, needle head QDM ${fmt(qdm)}°, tail QDR ${fmt(P)}° → you are on R-${fmt(P)}`];
   }
   const what = s.display === 'hsi' ? 'HSI' : 'CDI';
-  return [s.flag === 'FROM'
-    ? `${what}: course ${fmt(obs)}° centred with FROM flag → you are on R-${fmt(P)}, heading ${fmt(s.hdg)}°`
-    : `${what}: course ${fmt(obs)}° centred with TO flag → QDM ${fmt(obs)}°, you are on R-${fmt(P)}, heading ${fmt(s.hdg)}°`];
+  const you = `you are on R-${fmt(P)}, heading ${fmt(s.hdg)}°`;
+  if (flag === 'OFF' || Math.abs(deflection) > 10) {
+    return [`${what}: ${flag === 'OFF' ? 'OFF flag' : 'needle full scale'} at OBS ${fmt(obs)}° → ` +
+      `turn the OBS until the needle centres: FROM ${fmt(P)}° or TO ${fmt(qdm)}° → ${you}`];
+  }
+  if (deflection !== 0) {
+    const dots = Math.abs(deflection) / 2;
+    const needle = `needle ${dots} dot${dots === 1 ? '' : 's'} ${deflection > 0 ? 'right' : 'left'} (${deflection > 0 ? '+' : '−'}${Math.abs(deflection)}°)`;
+    return [flag === 'FROM'
+      ? `${what}: OBS ${fmt(obs)}° with FROM flag, ${needle} → ${you}`
+      : `${what}: OBS ${fmt(obs)}° with TO flag, ${needle} → QDM ${fmt(qdm)}°, ${you}`];
+  }
+  return [flag === 'FROM'
+    ? `${what}: course ${fmt(obs)}° centred with FROM flag → ${you}`
+    : `${what}: course ${fmt(obs)}° centred with TO flag → QDM ${fmt(obs)}°, ${you}`];
 }
 
 // Option label → [{ text, bold }]: the leading phrase (up to the first comma or bracket) and every

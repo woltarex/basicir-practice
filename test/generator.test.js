@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mulberry32, makeScenario, buildQuestion, BANDS, emphasisParts, setupError, statWeight, pickWeighted, eligibleKeys, summarize } from '../generator.js';
+import { mulberry32, makeScenario, buildQuestion, BANDS, emphasisParts, readingSteps, instrumentState, setupError, statWeight, pickWeighted, eligibleKeys, summarize } from '../generator.js';
 import { sdiff, interceptBand, holding } from '../rules.js';
 import { defaults } from '../store.js';
 
@@ -254,4 +254,40 @@ test('v1 golden scenarios: default settings still draw exactly what v1 drew', ()
     const rng = mulberry32(seed);
     assert.deepEqual(want.map((_, i) => makeScenario(rng, set, 'g' + i)), want);
   }
+});
+
+test('cdiMode deflected: HSI/DI+CDI get an OBS 1–4 dots off with the flag kept; others none', () => {
+  const rng = mulberry32(51);
+  const settings = { ...ALL, cdiMode: 'deflected' };
+  for (let i = 0; i < 3000; i++) {
+    const s = makeScenario(rng, settings, String(i));
+    const st = instrumentState(s);
+    if (s.display === 'hsi' || s.display === 'dicdi') {
+      assert.ok([2, 4, 6, 8].includes(Math.abs(st.deflection)), `deflection ${st.deflection}`);
+      assert.equal(st.flag, s.flag);
+    } else {
+      assert.equal(s.obs, undefined);
+    }
+  }
+});
+
+test('cdiMode interactive: random starting OBS; centred mode adds nothing', () => {
+  const rng = mulberry32(52);
+  for (let i = 0; i < 1000; i++) {
+    const s = makeScenario(rng, { ...ALL, cdiMode: 'interactive' }, String(i));
+    if (s.display === 'hsi' || s.display === 'dicdi') assert.ok(Number.isInteger(s.obs) && s.obs >= 0 && s.obs < 360);
+    const c = makeScenario(rng, { ...ALL, cdiMode: 'centered' }, String(i));
+    assert.equal(c.obs, undefined);
+    assert.equal(instrumentState(c).deflection, 0);
+  }
+});
+
+test('readingSteps explain the dot math when the needle is off centre', () => {
+  const s = { id: 'r', kind: 'intercept', display: 'hsi', flag: 'FROM', radial: 0, dir: 'outbound', pos: 95, phrasing: 'radial', dist: 5, hdg: 140, gs: 100 };
+  assert.equal(readingSteps({ ...s, obs: 90 })[0], 'HSI: OBS 090° with FROM flag, needle 2.5 dots left (−5°) → you are on R-095, heading 140°');
+  assert.equal(readingSteps({ ...s, obs: 270 })[0], 'HSI: OBS 270° with TO flag, needle 2.5 dots right (+5°) → QDM 275°, you are on R-095, heading 140°');
+  assert.equal(readingSteps({ ...s, display: 'dicdi', obs: 93 })[0], 'CDI: OBS 093° with FROM flag, needle 1 dot left (−2°) → you are on R-095, heading 140°');
+  assert.equal(readingSteps({ ...s, obs: 30 })[0], 'HSI: needle full scale at OBS 030° → turn the OBS until the needle centres: FROM 095° or TO 275° → you are on R-095, heading 140°');
+  assert.equal(readingSteps({ ...s, obs: 5 })[0], 'HSI: OFF flag at OBS 005° → turn the OBS until the needle centres: FROM 095° or TO 275° → you are on R-095, heading 140°');
+  assert.equal(readingSteps(s)[0], 'HSI: course 095° centred with FROM flag → you are on R-095, heading 140°'); // v1 text unchanged
 });
