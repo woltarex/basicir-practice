@@ -54,6 +54,8 @@
   button:focus-visible, .opt:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
   .head h1 { margin: 0; }
+  .byline { margin: 2px 0 0; font-size: .8rem; color: var(--muted); }
+  .byline a { color: inherit; font-family: ui-monospace, monospace; }
   .tools { display: inline-flex; align-items: center; gap: 8px; }
   .toggles { margin: 4px 0 8px; justify-content: center; width: 100%; }
   button.pill[aria-pressed="true"] { border-color: var(--accent); }
@@ -81,7 +83,10 @@
 <main>
   <section id="setup">
     <div class="head">
-      <h1>IR Drill — interception &amp; holding</h1>
+      <div>
+        <h1>IR Drill — interception &amp; holding</h1>
+        <p class="byline">by Bence Bársony<span id="buildSep" hidden> · </span><a id="build" hidden></a></p>
+      </div>
       <span class="tools">
         <button id="rulesSetup" class="mini secondary">? Rules</button>
         <select name="theme" aria-label="Theme">

@@ -548,6 +548,17 @@ document.addEventListener('keydown', (e) => {
 
 fillSetup();
 
+// Commit under the title: the latest master commit, which is what GitHub Pages serves. Hidden offline.
+fetch('https://api.github.com/repos/woltarex/basicir-practice/commits/master', { headers: { Accept: 'application/vnd.github.sha' } })
+  .then((r) => (r.ok ? r.text() : Promise.reject()))
+  .then((sha) => {
+    if (!/^[0-9a-f]{40}$/.test(sha)) return;
+    $('build').textContent = sha.slice(0, 7);
+    $('build').href = `https://github.com/woltarex/basicir-practice/commit/${sha}`;
+    $('build').hidden = $('buildSep').hidden = false;
+  })
+  .catch(() => {});
+
 try {
   navigator.serviceWorker?.register('./sw.js').catch(() => {});
 } catch { /* no service worker support */ }
