@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mulberry32, makeScenario, buildQuestion, solve } from '../generator.js';
 import { renderInstrument } from '../instruments/index.js';
-import { overlay } from '../instruments/overlay.js';
+import { overlay, sectorDiagram } from '../instruments/overlay.js';
 import { norm } from '../rules.js';
 
 // data-bearing of the overlay element with the given data-role (null if absent).
@@ -115,4 +115,38 @@ test('northUp: an instrument question with a result gets the north-up SOLUTION r
   assert.ok(!svg.includes('id="needle"'));
   // Without a result northUp has nothing to draw, so the question's instrument comes back.
   assert.ok(renderInstrument(s, null, { northUp: true }).includes('id="needle"'));
+});
+
+const tags = (svg, role) => [...svg.matchAll(new RegExp(`<[a-z]+ data-role="${role}"[^>]*>`, 'g'))].map((m) => m[0]);
+const attr = (tag, name) => tag.match(new RegExp(`\\s${name}="([^"]*)"`))[1];
+const sectorBearings = (svg) => Object.fromEntries(tags(svg, 'sector').map((t) => [attr(t, 'data-label'), Number(attr(t, 'data-bearing'))]));
+
+test('holding overlay shades and labels the four sectors, upright on a rotated card', () => {
+  const s = hd({ inbound: 0, turn: 'std', trk: 150, hdg: 150 });
+  const { svg } = overlay(s, solve(s), 40);
+  // Label d = 25 (DIR, clear of the racetrack), 90, 145, 235, seen from where the aircraft comes from (I + d + 180).
+  assert.deepEqual(sectorBearings(svg), { DIR: 205, SPEC: 270, TD: 325, PAR: 55 });
+  for (const t of tags(svg, 'sector')) {
+    assert.equal(attr(t, 'transform'), `rotate(40 ${attr(t, 'x')} ${attr(t, 'y')})`);
+  }
+  const wedges = tags(svg, 'wedge');
+  assert.equal(wedges.length, 4);
+  assert.ok(wedges.every((w) => attr(w, 'fill-opacity') === '0.08'));
+  for (const l of tags(svg, 'sector')) {
+    assert.ok(Math.abs(Math.hypot(Number(attr(l, 'x')) - 100, Number(attr(l, 'y')) - 100) - 44) < 0.2);
+  }
+});
+
+test('Non-STD sector labels mirror the STD ones', () => {
+  const s = hd({ inbound: 0, turn: 'nonstd', trk: 210, hdg: 210 });
+  assert.deepEqual(sectorBearings(overlay(s, solve(s), 0).svg), { DIR: 155, SPEC: 90, TD: 35, PAR: 305 });
+});
+
+test('sectorDiagram draws a labelled north-up sector chart for each turn direction', () => {
+  for (const turn of ['std', 'nonstd']) {
+    const svg = sectorDiagram(turn);
+    assert.match(svg, /^<svg/);
+    assert.equal(tags(svg, 'sector').length, 4);
+    assert.match(svg, new RegExp(`data-role="racetrack"[^>]*data-turn="${turn}"`));
+  }
 });
