@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mulberry32, makeScenario, buildQuestion, BANDS, emphasisParts, setupError } from '../generator.js';
+import { mulberry32, makeScenario, buildQuestion, BANDS, emphasisParts, setupError, statWeight, pickWeighted, eligibleKeys } from '../generator.js';
 import { sdiff, interceptBand, holding } from '../rules.js';
 import { defaults } from '../store.js';
 
@@ -172,4 +172,51 @@ test('setupError covers empty and impossible filter choices', () => {
     'NDB holdings require RMI or Numbers display.');
   assert.equal(setupError({ types: ['hold'], display: 'instruments', instruments: ['rmi', 'hsi'], filters: { ...F, navs: ['NDB'] } }), '');
   assert.equal(setupError({ ...ALL, types: [] }), 'Pick at least one exercise.');
+});
+
+test('statWeight: unseen 3, mastered near the 0.5 floor, errors and slowness raise it', () => {
+  assert.equal(statWeight(undefined), 3);
+  assert.equal(statWeight({ correct: 0, total: 0, ms: 0 }), 3);
+  const mastered = statWeight({ correct: 10, total: 10, ms: 30000 }); // 3 s each
+  assert.ok(Math.abs(mastered - 0.6) < 1e-9);
+  assert.ok(statWeight({ correct: 0, total: 10, ms: 30000 }) > statWeight({ correct: 5, total: 10, ms: 30000 }));
+  assert.ok(statWeight({ correct: 10, total: 10, ms: 600000 }) > mastered);
+  assert.ok(statWeight({ correct: 10, total: 10, ms: 0 }) >= 0.5);
+});
+
+test('pickWeighted favours weak keys but every key still appears', () => {
+  const rng = mulberry32(41);
+  const keys = ['correction', '45', 'holding'];
+  const stats = { correction: { correct: 0, total: 10, ms: 100000 }, '45': { correct: 10, total: 10, ms: 30000 }, holding: { correct: 10, total: 10, ms: 30000 } };
+  const n = {};
+  for (let i = 0; i < 10000; i++) { const k = pickWeighted(rng, keys, stats); n[k] = (n[k] ?? 0) + 1; }
+  assert.ok(n.correction > n['45'] * 3);
+  assert.ok(n['45'] > 0 && n.holding > 0);
+});
+
+test('eligibleKeys follow types and filters', () => {
+  assert.deepEqual(eligibleKeys(ALL), ['correction', '45', '90/45', 'overstation', 'holding']);
+  assert.deepEqual(eligibleKeys({ ...ALL, types: ['hold'] }), ['holding']);
+  assert.deepEqual(eligibleKeys({ ...ALL, types: ['intercept'], filters: { ...F, bands: ['45', 'overstation'], dirs: ['inbound'] } }), ['45']);
+});
+
+test('adaptive makeScenario drills the weakest key and respects filters', () => {
+  const rng = mulberry32(42);
+  const good = { correct: 10, total: 10, ms: 100000 };
+  const stats = { correction: good, '45': good, '90/45': good, holding: good, overstation: { correct: 0, total: 10, ms: 100000 } };
+  const settings = { ...ALL, adaptive: true };
+  let over = 0;
+  for (let i = 0; i < 3000; i++) {
+    const s = makeScenario(rng, settings, String(i), stats);
+    if (s.kind === 'intercept' && interceptBand(Math.abs(sdiff(s.radial, s.pos))) === 'overstation') {
+      over++;
+      assert.equal(s.dir, 'outbound');
+    }
+  }
+  assert.ok(over / 3000 > 0.45, `over-station share ${over / 3000}`);
+  const only45 = { ...settings, filters: { ...F, bands: ['45'] } };
+  for (let i = 0; i < 500; i++) {
+    const s = makeScenario(rng, only45, String(i), stats);
+    if (s.kind === 'intercept') assert.equal(interceptBand(Math.abs(sdiff(s.radial, s.pos))), '45');
+  }
 });

@@ -42,16 +42,19 @@ const bandsFor = (dir, bands) => only(dir === 'inbound' ? INBOUND_BANDS : Object
 const filtersOf = (settings) => ({ ...DEFAULT_FILTERS, ...settings.filters });
 
 // settings: { types, display, instruments, filters? } — see store.js defaults().
-export function makeScenario(rng, settings, id) {
+export function makeScenario(rng, settings, id, stats = null) {
   const f = filtersOf(settings);
-  const kind = pick(rng, settings.types);
+  // Adaptive: pick the stat key first (weighted toward weak spots), then build a scenario for it.
+  const key = settings.adaptive && stats ? pickWeighted(rng, eligibleKeys(settings), stats) : null;
+  const kind = key ? (key === 'holding' ? 'hold' : 'intercept') : pick(rng, settings.types);
+  const bands = key && key !== 'holding' ? [key] : f.bands;
   // HSI and DI+CDI only show VOR holds, so NDB-only holds stay on the RMI or numbers.
   const vorOk = kind === 'intercept' || f.navs.includes('VOR');
   const display = pickDisplay(rng, vorOk ? settings : { ...settings, instruments: only(['rmi'], settings.instruments) });
   const flag = pick(rng, ['TO', 'FROM']);
   if (kind === 'intercept') {
-    const dir = pick(rng, only(['inbound', 'outbound'], f.dirs).filter((d) => bandsFor(d, f.bands).length));
-    const band = pick(rng, bandsFor(dir, f.bands));
+    const dir = pick(rng, only(['inbound', 'outbound'], f.dirs).filter((d) => bandsFor(d, bands).length));
+    const band = pick(rng, bandsFor(dir, bands));
     const [lo, hi] = BANDS[band];
     const radial = int(rng, 0, 359);
     const pos = norm(radial + (rng() < 0.5 ? -1 : 1) * int(rng, lo, hi));
@@ -100,6 +103,32 @@ export function setupError(s) {
     }
   }
   return '';
+}
+
+// Stat keys (see buildQuestion's statKey) that the current types and filters can produce.
+export function eligibleKeys(settings) {
+  const f = filtersOf(settings);
+  const keys = settings.types.includes('intercept')
+    ? ['correction', '45', '90/45', 'overstation'].filter((b) => f.bands.includes(b) && f.dirs.some((d) => bandsFor(d, [b]).length))
+    : [];
+  return settings.types.includes('hold') ? [...keys, 'holding'] : keys;
+}
+
+// How much to drill a stat key: unseen first, then by error rate and slowness; never below 0.5.
+export function statWeight(st) {
+  if (!st || !(st.total > 0)) return 3;
+  const acc = st.correct / st.total; // 0..1
+  const avgSec = st.ms / st.total / 1000;
+  const errorTerm = (1 - acc) * 4; // 0..4
+  const speedTerm = Math.min(avgSec / 30, 1.5); // 0..1.5
+  return 0.5 + errorTerm + speedTerm;
+}
+
+export function pickWeighted(rng, keys, stats) {
+  const w = keys.map((k) => statWeight(stats[k]));
+  let x = rng() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < keys.length; i++) if ((x -= w[i]) < 0) return keys[i];
+  return keys.at(-1);
 }
 
 export function solve(s) {

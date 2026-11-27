@@ -37,6 +37,7 @@ function fillSetup() {
     form.querySelectorAll(`[name=${k}]`).forEach((el) => (el.checked = s.filters[k].includes(el.value)));
   }
   form.querySelector('[name=boundaryFocus]').checked = s.filters.boundaryFocus;
+  form.querySelector('[name=adaptive]').checked = s.adaptive;
   form.querySelector('[name=theme]').value = s.theme;
   applyTheme();
   syncSetup();
@@ -53,6 +54,7 @@ function readSetup() {
     length: Number(checked('length')[0] ?? 20),
     timer,
     theme: form.querySelector('[name=theme]').value,
+    adaptive: form.querySelector('[name=adaptive]').checked,
     filters: {
       bands: checked('bands'),
       dirs: checked('dirs'),
@@ -141,7 +143,7 @@ function nextQuestion() {
   if (session.n && session.i >= session.n) return endSession();
   const s = session.review
     ? session.queue[session.i]
-    : makeScenario(session.rng, data.settings, `${session.seed}-${session.i}`);
+    : makeScenario(session.rng, data.settings, `${session.seed}-${session.i}`, data.stats);
   const q = buildQuestion(s, session.rng);
   session.q = q;
   session.answered = false;
