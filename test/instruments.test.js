@@ -102,3 +102,11 @@ test('DI+CDI has 5 dots per side at 2° per dot', () => {
   const xs = [...svg.matchAll(/<circle cx="([\d.]+)" cy="100" r="2.5"/g)].map((m) => Number(m[1]) - 100);
   assert.deepEqual(xs, [-40, -32, -24, -16, -8, 8, 16, 24, 32, 40]);
 });
+
+test('DI+CDI flag sits below the dot row, inside radius 56, and is drawn before the needle', () => {
+  const svg = dicdi({ hdg: 0, obs: 0, flag: 'FROM', deflection: 8 });
+  const [, x, y, w, h] = svg.match(/<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)"/);
+  assert.ok(Number(y) >= 106);
+  assert.ok(Math.hypot(Number(x) + Number(w) - 100, Number(y) + Number(h) - 100) <= 56);
+  assert.ok(svg.indexOf('data-flag') < svg.indexOf('id="cdi"'));
+});
