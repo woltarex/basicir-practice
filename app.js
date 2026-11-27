@@ -438,7 +438,7 @@ function endSession() {
   session = null;
   const right = log.filter((l) => l.correct).length;
   const avgMs = log.length ? log.reduce((a, l) => a + l.ms, 0) / log.length : 0;
-  const prev = historyAverage(data.history);
+  const prev = historyAverage(data.history.filter((h) => !h.review));
   recordSession(data, { at: Date.now(), right, total: log.length, avgMs: Math.round(avgMs), review });
   save(data);
   $('score').textContent = `Score ${right} / ${log.length} · average ${(avgMs / 1000).toFixed(1)} s`;

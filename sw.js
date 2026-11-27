@@ -1,5 +1,5 @@
 // Network-first so GitHub Pages updates show up immediately; the cache is the offline fallback.
-const CACHE = 'basicir-v2-1';
+const CACHE = 'basicir-v2-2';
 const FILES = ['./', 'index.html', 'app.js', 'rules.js', 'generator.js', 'store.js', 'manifest.json', 'icon.svg', 'instruments/card.js', 'instruments/dicdi.js', 'instruments/hsi.js', 'instruments/index.js', 'instruments/overlay.js', 'instruments/rmi.js'];
 
 self.addEventListener('install', (e) => {
